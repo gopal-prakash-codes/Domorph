@@ -1,0 +1,3 @@
+{
+    "ignore": ["client/public/scraped_website/*"]
+}
