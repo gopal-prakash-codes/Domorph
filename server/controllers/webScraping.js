@@ -30,6 +30,7 @@ const autoScroll = async (page) => {
 
 export const webScraping = async (req, res) => {
   const { url } = req.body || {};
+
   if (!url || typeof url !== "string") {
     return res.status(400).json({ message: "Invalid or missing URL." });
   }
@@ -38,11 +39,11 @@ export const webScraping = async (req, res) => {
   try {
     browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
+
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
     await new Promise((resolve) => setTimeout(resolve, 5000));
     await autoScroll(page);
     await new Promise((resolve) => setTimeout(resolve, 3000));
-
     await page.waitForSelector("img", { timeout: 10000 });
 
     const dirPath = path.join(
@@ -54,9 +55,8 @@ export const webScraping = async (req, res) => {
       "scraped_website"
     );
     const assetDir = path.join(dirPath, "assets");
-    await fs.mkdir(assetDir, { recursive: true });
+    await fs.mkdir(assetDir, { recursive: true }); // === Extract Image URLs ===
 
-    // === Replace all <img> src attributes with this dynamic list ===
     const imageHandles = await page.$$eval("img", (imgs) => {
       const base = location.origin;
 
@@ -80,20 +80,45 @@ export const webScraping = async (req, res) => {
         .filter(Boolean);
     });
 
-    console.log("imageHandles:", imageHandles);
+    console.log("imageHandles:", imageHandles); // === Download and Save Images ===
 
-    // Replace <img> srcs in-place using captured imageHandles
+    const localImagePaths = [];
+
+    for (let i = 0; i < imageHandles.length; i++) {
+      const imageUrl = imageHandles[i];
+      try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${imageUrl}`);
+
+        const contentType = response.headers.get("content-type");
+        let extension = "jpg";
+        if (contentType?.includes("png")) extension = "png";
+        else if (contentType?.includes("jpeg") || contentType?.includes("jpg"))
+          extension = "jpg";
+
+        const imageName = `image_${i}.${extension}`;
+        const imagePath = path.join(assetDir, imageName);
+        const buffer = await response.buffer();
+        await fs.writeFile(imagePath, buffer);
+
+        const localPath = `http://localhost:3000/scraped_website/assets/${imageName}`;
+        localImagePaths.push(localPath);
+      } catch (err) {
+        console.warn(`Image download failed: ${imageUrl}, ${err.message}`);
+        localImagePaths.push(imageUrl); // fallback to original
+      }
+    } // === Replace img src attributes in-place ===
+
     await page.evaluate((newSources) => {
       const imgs = Array.from(document.querySelectorAll("img"));
       imgs.forEach((img, i) => {
         if (newSources[i]) {
           img.setAttribute("src", newSources[i]);
         }
-        img.removeAttribute("srcset"); // Remove srcset attribute
+        img.removeAttribute("srcset");
       });
-    }, imageHandles);
+    }, localImagePaths); // === Capture CSS (optional) ===
 
-    // === Capture CSS (optional) ===
     const stylesheets = await page.$$eval("link[rel='stylesheet']", (links) =>
       links.map((link) => link.href)
     );
@@ -104,11 +129,10 @@ export const webScraping = async (req, res) => {
         const css = await (await fetch(href)).text();
         cssContent += `\n/* From ${href} */\n${css}`;
       } catch (err) {
-        console.warn(`Failed to fetch CSS ${href}:`, err.message);
+        console.warn(`Failed to fetch CSS ${href}: ${err.message}`);
       }
-    }
+    } // === Capture JS Scripts (optional) ===
 
-    // === Capture JS Scripts (optional) ===
     const scriptHandles = await page.$$eval("script[src]", (scripts) =>
       scripts.map((s) => s.getAttribute("src")).filter(Boolean)
     );
@@ -122,14 +146,12 @@ export const webScraping = async (req, res) => {
         const js = await response.text();
         scriptContent += `\n/* Script from ${absUrl} */\n<script>${js}</script>\n`;
       } catch (err) {
-        console.warn(`Script fetch failed: ${src}`, err.message);
+        console.warn(`Script fetch failed: ${src}, ${err.message}`);
       }
-    }
+    } // === Get Final HTML Content ===
 
-    // === Get Final HTML Content ===
-    let content = await page.content();
+    let content = await page.content(); // Inject CSS & base href
 
-    // Inject CSS & base href
     if (cssContent) {
       content = content.replace(
         "</head>",
@@ -139,18 +161,15 @@ export const webScraping = async (req, res) => {
     content = content.replace(
       "</head>",
       `<base href="/scraped_website/">\n</head>`
-    );
+    ); // Remove client-side JS
 
-  
-    // Remove client-side JS
-    content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/g, "");
+    // content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/g, ""); // Save HTML file
 
-    // Save HTML file
     const filePath = path.join(dirPath, "scraped_website.html");
     await fs.writeFile(filePath, content);
 
     res.status(200).json({
-      message: "Website scraped with image URLs directly replaced.",
+      message: "Website scraped with image URLs replaced and saved locally.",
       file: filePath,
     });
   } catch (err) {
