@@ -77,7 +77,10 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
 
   const page = await browser.newPage();
   try {
-    await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(normalizedUrl, {
+      waitUntil: "networkidle2",
+      timeout: 30000,
+    });
     await autoScroll(page);
 
     // Download and rewrite image sources
@@ -153,17 +156,22 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
     }
 
     // Rewrite anchor hrefs to local paths
-    await page.$$eval("a[href]", (anchors, baseOrigin) => {
-      anchors.forEach((a) => {
-        try {
-          const url = new URL(a.href, baseOrigin);
-          if (url.origin === baseOrigin) {
-            let path = url.pathname.replace(/\/$/, "") || "/index";
-            a.setAttribute("href", `/scraped_website${path}.html`);
-          }
-        } catch {}
-      });
-    }, new URL(url).origin);
+    await page.$$eval(
+      "a[href]",
+      (anchors, baseOrigin) => {
+        anchors.forEach((a) => {
+          try {
+            const url = new URL(a.href, baseOrigin);
+            if (url.origin === baseOrigin) {
+              let path = url.pathname.replace(/\/$/, "") || "/index";
+              const hash = url.hash || "";
+              a.setAttribute("href", `/scraped_website${path}.html${hash}`);
+            }
+          } catch {}
+        });
+      },
+      new URL(url).origin
+    );
 
     // Remove all script tags by commenting them out
     await page.$$eval("script", (scripts) => {
@@ -190,10 +198,16 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
     let content = await page.content();
 
     if (cssContent) {
-      content = content.replace("</head>", `<style>${cssContent}</style></head>`);
+      content = content.replace(
+        "</head>",
+        `<style>${cssContent}</style></head>`
+      );
     }
 
-    content = content.replace("</head>", `<base href="/scraped_website/">\n</head>`);
+    content = content.replace(
+      "</head>",
+      `<base href="/scraped_website/">\n</head>`
+    );
 
     const filePath = urlToPath(baseDir, normalizedUrl);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -212,7 +226,14 @@ export const webScraping = async (req, res) => {
     return res.status(400).json({ message: "Invalid or missing URL." });
   }
 
-  const baseDir = path.join(__dirname, "..", "..", "client", "public", "scraped_website");
+  const baseDir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "client",
+    "public",
+    "scraped_website"
+  );
   await fs.mkdir(baseDir, { recursive: true });
 
   const visited = new Set();
