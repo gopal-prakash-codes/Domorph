@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "anthropic": "^0.0.0",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",

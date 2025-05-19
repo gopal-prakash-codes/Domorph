@@ -6,14 +6,16 @@ import { useState } from "react";
 import { motion } from "motion/react";
 
 export function Home() {
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit, setValue, watch } = useForm();
   const [sentQuery, setSentQuery] = useState(false);
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-y-8">
+    <motion.div
+      className="flex flex-col items-center h-full gap-y-8"
+    >
       <motion.div
         className="flex flex-col w-1/2 items-center justify-center"
         initial={{ opacity: 0, y: 100 }}
-        animate={sentQuery ? { opacity: 0, y: -100 } : { opacity: 1, y: 0 }}
+        animate={sentQuery ? { opacity: 0, y: -100, height: 0 } : { opacity: 1, y: 0, height: "auto" }}
         transition={{ duration: 0.7 }}
       >
         <h1 className="text-4xl font-bold">Welcome to Domorph</h1>
@@ -22,14 +24,16 @@ export function Home() {
         </p>
       </motion.div>
 
-      <div className="flex flex-col w-1/3">
+      <div className="flex flex-col w-1/3 h-full">
         <SearchBar
           register={register}
           handleSubmit={handleSubmit}
+          setValue={setValue}
+          watch={watch}
           setSentQuery={setSentQuery}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
 

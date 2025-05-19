@@ -2,17 +2,28 @@ import apiInstance from "../axiosInstance/axiosInstance";
 import { toast} from 'react-hot-toast'  
 
 export const webScrape = async (url: string) => {
-  const toastId = toast.loading("Scraping website...");
   try {
     const response = await apiInstance.post("/webScrape", { url });
     if (response.status === 200) {
-      toast.success("Website scraped successfully", { id: toastId });
       return response.data;
     } else {
-      toast.error("Failed to scrape website!", { id: toastId });
+      toast.error("Failed to scrape website!");
     }
   } catch (error: any) {
-    toast.error(error.response.data.message, { id: toastId });
+    toast.error(error.response.data.message);
+    // throw new Error("Failed to scrape website");
+  }
+};
+export const promptToLlm = async (prompt: string) => {
+  try {
+    const response = await apiInstance.post("/prompttollm", { prompt });
+    if (response.status === 200) {
+      return response.data;
+    } else {
+      toast.error("Failed to modify website!");
+    }
+  } catch (error: any) {
+    toast.error(error.response.data.message);
     // throw new Error("Failed to scrape website");
   }
 };

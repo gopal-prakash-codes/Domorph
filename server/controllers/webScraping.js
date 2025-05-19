@@ -14,6 +14,29 @@ const __dirname = path.dirname(__filename);
 const CONCURRENCY_LIMIT = 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
 
+async function getFolderStructure(dir, base = "") {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+
+  const structure = [];
+
+  for (const entry of entries) {
+    if (entry.name === "assets") continue; // ⛔ Skip assets folder
+
+    const relativePath = path.join(base, entry.name);
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      const children = await getFolderStructure(fullPath, relativePath);
+      structure.push({ type: "folder", name: entry.name, children });
+    } else {
+      structure.push({ type: "file", name: entry.name });
+    }
+  }
+
+  return structure;
+}
+
+
 const autoScroll = async (page) => {
   await page.evaluate(async () => {
     await new Promise((resolve) => {
@@ -288,8 +311,10 @@ export const webScraping = async (req, res) => {
       );
     }
 
+    const folderStructure = await getFolderStructure(baseDir);
     res.status(200).json({
       message: `Scraped ${visited.size} pages successfully.`,
+      structure: folderStructure,
     });
   } catch (err) {
     console.error("Scraping failed:", err);
