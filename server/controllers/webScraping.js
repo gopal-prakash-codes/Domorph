@@ -4,11 +4,15 @@ import fetch from "node-fetch";
 import { fileURLToPath } from "url";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import pLimit from "p-limit";
 
 puppeteer.use(StealthPlugin());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const CONCURRENCY_LIMIT = 5;
+const limit = pLimit(CONCURRENCY_LIMIT);
 
 const autoScroll = async (page) => {
   await page.evaluate(async () => {
@@ -31,9 +35,9 @@ const autoScroll = async (page) => {
 const normalizeUrl = (rawUrl) => {
   try {
     const url = new URL(rawUrl);
-    url.hash = ""; // remove #fragment
-    url.search = ""; // remove query string
-    return url.toString().replace(/\/$/, ""); // remove trailing slash
+    url.hash = "";
+    url.search = "";
+    return url.toString().replace(/\/$/, "");
   } catch {
     return null;
   }
@@ -83,19 +87,18 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
     });
     await autoScroll(page);
 
-    // Download and rewrite image sources
     const assetDir = path.join(baseDir, "assets");
-    await fs.mkdir(assetDir, { recursive: true });
+    const jsDir = path.join(assetDir, "js");
+    await fs.mkdir(jsDir, { recursive: true });
 
+    // Handle images
     const imageHandles = await page.$$eval("img", (imgs) => {
       const base = location.origin;
-
       function getBestSrc(srcset) {
         if (!srcset) return null;
         const candidates = srcset.split(",").map((s) => s.trim().split(" ")[0]);
         return candidates[candidates.length - 1] || null;
       }
-
       return imgs
         .map((img) => {
           const srcset = img.getAttribute("srcset");
@@ -117,18 +120,15 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       try {
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error(`Failed to fetch image: ${imageUrl}`);
-
         const contentType = response.headers.get("content-type");
         let extension = "jpg";
         if (contentType?.includes("png")) extension = "png";
         else if (contentType?.includes("jpeg") || contentType?.includes("jpg"))
           extension = "jpg";
-
         const imageName = `image_${Date.now()}_${i}.${extension}`;
         const imagePath = path.join(assetDir, imageName);
         const buffer = await response.buffer();
         await fs.writeFile(imagePath, buffer);
-
         const localPath = `http://localhost:3000/scraped_website/assets/${imageName}`;
         localImagePaths.push(localPath);
       } catch (err) {
@@ -146,6 +146,42 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
         img.removeAttribute("srcset");
       });
     }, localImagePaths);
+
+    // Download and rewrite JS files
+    const scriptSrcs = await page.$$eval("script[src]", (scripts) =>
+      scripts.map((s) => s.src)
+    );
+
+    const localScriptPaths = [];
+
+    for (const srcUrl of scriptSrcs) {
+      try {
+        const urlObj = new URL(srcUrl, page.url());
+        const filename = path.basename(urlObj.pathname);
+        const jsPath = path.join(jsDir, filename);
+        const localUrl = `http://localhost:3000/scraped_website/assets/js/${filename}`;
+        const res = await fetch(urlObj.href);
+        if (!res.ok) throw new Error(`JS fetch failed: ${urlObj.href}`);
+        const buffer = await res.buffer();
+        await fs.writeFile(jsPath, buffer);
+        localScriptPaths.push({ original: srcUrl, local: localUrl });
+      } catch (err) {
+        console.warn(`JS download failed: ${srcUrl}, ${err.message}`);
+      }
+    }
+
+    await page.$$eval(
+      "script[src]",
+      (scripts, replacements) => {
+        scripts.forEach((s) => {
+          const found = replacements.find((r) => s.src.includes(r.original));
+          if (found) {
+            s.src = found.local;
+          }
+        });
+      },
+      localScriptPaths
+    );
 
     // Extract and enqueue new internal links
     const internalLinks = await extractInternalLinks(page, normalizedUrl);
@@ -173,7 +209,7 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       new URL(url).origin
     );
 
-    // Remove all script tags by commenting them out
+    // Comment out remaining script tags
     await page.$$eval("script", (scripts) => {
       scripts.forEach((script) => {
         const content = script.outerHTML;
@@ -182,7 +218,7 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       });
     });
 
-    // Embed external styles
+    // Inline styles
     const stylesheets = await page.$$eval("link[rel='stylesheet']", (links) =>
       links.map((link) => link.href)
     );
@@ -244,8 +280,12 @@ export const webScraping = async (req, res) => {
     browser = await puppeteer.launch({ headless: false });
 
     while (queue.length > 0) {
-      const currentUrl = queue.shift();
-      await scrapePage(browser, currentUrl, baseDir, visited, queue);
+      const batch = queue.splice(0, CONCURRENCY_LIMIT);
+      await Promise.all(
+        batch.map((link) =>
+          limit(() => scrapePage(browser, link, baseDir, visited, queue))
+        )
+      );
     }
 
     res.status(200).json({
