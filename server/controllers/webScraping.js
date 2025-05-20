@@ -147,7 +147,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
         const imagePath = path.join(assetDir, imageName);
         const buffer = await response.buffer();
         await fs.writeFile(imagePath, buffer);
-        const localPath = `http://localhost:3000/scraped_website/assets/${imageName}`;
+        const localPath = `${process.env.CLIENT_URL}/scraped_website/assets/${imageName}`;
         localImagePaths.push(localPath);
       } catch (err) {
         console.warn(`Image download failed: ${imageUrl}, ${err.message}`);
@@ -177,7 +177,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
         const urlObj = new URL(srcUrl, page.url());
         const filename = path.basename(urlObj.pathname);
         const jsPath = path.join(jsDir, filename);
-        const localUrl = `http://localhost:3000/scraped_website/assets/js/${filename}`;
+        const localUrl = `${process.env.CLIENT_URL}/scraped_website/assets/js/${filename}`;
         const res = await fetch(urlObj.href);
         if (!res.ok) throw new Error(`JS fetch failed: ${urlObj.href}`);
         const buffer = await res.buffer();
@@ -272,10 +272,16 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
 }
 
 export const webScraping = async (req, res) => {
-  const { url } = req.body || {};
+  const { url } = req.query || {};
   if (!url || typeof url !== "string") {
     return res.status(400).json({ message: "Invalid or missing URL." });
   }
+
+  // Set up SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders(); // Ensure headers are sent immediately
 
   const baseDir = path.join(__dirname, "..", "..", "client", "public", "scraped_website");
   await fs.mkdir(baseDir, { recursive: true });
@@ -287,29 +293,48 @@ export const webScraping = async (req, res) => {
   try {
     browser = await puppeteer.launch({ headless: true });
 
+    // Function to send SSE message
+    const sendUpdate = (data) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     while (queue.length > 0) {
       const batch = queue.splice(0, CONCURRENCY_LIMIT);
       await Promise.all(
         batch.map((link) =>
           limit(() =>
             scrapePage(browser, link, baseDir, visited, queue, (savedPath) => {
+              // Send live update for each saved page
+              sendUpdate({ type: "progress", path: savedPath });
               console.log("📄 File saved:", savedPath);
-              // 🚀 You can stream this to frontend if needed
             })
           )
         )
       );
     }
 
+    // After scraping completes, send the folder structure
     const folderStructure = await getFolderStructure(baseDir);
-    res.status(200).json({
+    sendUpdate({
+      type: "complete",
       message: `Scraped ${visited.size} pages successfully.`,
       structure: folderStructure,
     });
+
+    // Close the SSE connection
+    res.end();
   } catch (err) {
     console.error("Scraping failed:", err);
-    res.status(500).json({ message: "Scraping failed" });
+    // Send error update
+    res.write(`data: ${JSON.stringify({ type: "error", message: "Scraping failed: " + err.message })}\n\n`);
+    res.end();
   } finally {
     if (browser) await browser.close();
   }
+
+  // Handle client disconnect
+  req.on("close", () => {
+    if (browser) browser.close();
+    res.end();
+  });
 };

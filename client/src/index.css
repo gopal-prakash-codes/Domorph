@@ -210,3 +210,14 @@
     transform: rotate(-360deg);
   }
 } 
+
+::-webkit-scrollbar{
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb{
+  background-color: var(--color-base-content);
+  border: 3px solid transparent;
+  border-radius: 20px;
+  background-clip: content-box;
+}
