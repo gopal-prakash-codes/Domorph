@@ -1,3 +1,4 @@
+// scraping.js
 import fs from "fs/promises";
 import path from "path";
 import fetch from "node-fetch";
@@ -14,14 +15,12 @@ const __dirname = path.dirname(__filename);
 const CONCURRENCY_LIMIT = 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
 
-async function getFolderStructure(dir, base = "") {
+const getFolderStructure = async (dir, base = "") => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
-
   const structure = [];
 
   for (const entry of entries) {
-    if (entry.name === "assets") continue; // ⛔ Skip assets folder
-
+    if (entry.name === "assets") continue;
     const relativePath = path.join(base, entry.name);
     const fullPath = path.join(dir, entry.name);
 
@@ -34,8 +33,7 @@ async function getFolderStructure(dir, base = "") {
   }
 
   return structure;
-}
-
+};
 
 const autoScroll = async (page) => {
   await page.evaluate(async () => {
@@ -97,17 +95,14 @@ const extractInternalLinks = async (page, baseUrl) => {
   return uniqueLinks;
 };
 
-async function scrapePage(browser, url, baseDir, visited, queue) {
+async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl || visited.has(normalizedUrl)) return;
   visited.add(normalizedUrl);
 
   const page = await browser.newPage();
   try {
-    await page.goto(normalizedUrl, {
-      waitUntil: "networkidle2",
-      timeout: 30000,
-    });
+    await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await autoScroll(page);
 
     const assetDir = path.join(baseDir, "assets");
@@ -156,7 +151,7 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
         localImagePaths.push(localPath);
       } catch (err) {
         console.warn(`Image download failed: ${imageUrl}, ${err.message}`);
-        localImagePaths.push(imageUrl); // fallback
+        localImagePaths.push(imageUrl);
       }
     }
 
@@ -206,7 +201,6 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       localScriptPaths
     );
 
-    // Extract and enqueue new internal links
     const internalLinks = await extractInternalLinks(page, normalizedUrl);
     for (const link of internalLinks) {
       if (!visited.has(link) && !queue.includes(link)) {
@@ -214,7 +208,6 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       }
     }
 
-    // Rewrite anchor hrefs to local paths
     await page.$$eval(
       "a[href]",
       (anchors, baseOrigin) => {
@@ -232,7 +225,6 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       new URL(url).origin
     );
 
-    // Comment out remaining script tags
     await page.$$eval("script", (scripts) => {
       scripts.forEach((script) => {
         const content = script.outerHTML;
@@ -241,7 +233,6 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
       });
     });
 
-    // Inline styles
     const stylesheets = await page.$$eval("link[rel='stylesheet']", (links) =>
       links.map((link) => link.href)
     );
@@ -257,20 +248,21 @@ async function scrapePage(browser, url, baseDir, visited, queue) {
     let content = await page.content();
 
     if (cssContent) {
-      content = content.replace(
-        "</head>",
-        `<style>${cssContent}</style></head>`
-      );
+      content = content.replace("</head>", `<style>${cssContent}</style></head>`);
     }
 
-    content = content.replace(
-      "</head>",
-      `<base href="/scraped_website/">\n</head>`
-    );
+    content = content.replace("</head>", `<base href="/scraped_website/">\n</head>`);
 
     const filePath = urlToPath(baseDir, normalizedUrl);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
+
+    // 🔥 Notify live path
+    if (typeof onPageSaved === "function") {
+      const relativePath = path.relative(baseDir, filePath).replace(/\\/g, "/");
+      onPageSaved(relativePath); // e.g., "index.html" or "plus/talk.html"
+    }
+
     console.log(`✅ Saved: ${normalizedUrl} → ${filePath}`);
   } catch (err) {
     console.warn(`❌ Failed ${normalizedUrl}: ${err.message}`);
@@ -285,14 +277,7 @@ export const webScraping = async (req, res) => {
     return res.status(400).json({ message: "Invalid or missing URL." });
   }
 
-  const baseDir = path.join(
-    __dirname,
-    "..",
-    "..",
-    "client",
-    "public",
-    "scraped_website"
-  );
+  const baseDir = path.join(__dirname, "..", "..", "client", "public", "scraped_website");
   await fs.mkdir(baseDir, { recursive: true });
 
   const visited = new Set();
@@ -300,13 +285,18 @@ export const webScraping = async (req, res) => {
 
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: false });
+    browser = await puppeteer.launch({ headless: true });
 
     while (queue.length > 0) {
       const batch = queue.splice(0, CONCURRENCY_LIMIT);
       await Promise.all(
         batch.map((link) =>
-          limit(() => scrapePage(browser, link, baseDir, visited, queue))
+          limit(() =>
+            scrapePage(browser, link, baseDir, visited, queue, (savedPath) => {
+              console.log("📄 File saved:", savedPath);
+              // 🚀 You can stream this to frontend if needed
+            })
+          )
         )
       );
     }

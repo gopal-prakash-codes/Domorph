@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, Send, SendHorizonal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "../ui/command";
-import { webScrape } from "../../api/useApi";
+import { promptToLlm, webScrape } from "../../api/useApi";
 
 type getDataType = {
   isScraped: boolean;
@@ -46,19 +46,19 @@ export default function SearchBar({
       setLoading(true);
       setSentQuery(true);
       try {
-        const response = await webScrape(data.query)
-        console.log(response);
+        // const response = await webScrape(data.query)
+        // console.log(response);
         
-        // const response = {
-        //   isScraped: true,
-        //   message: `Scraped 4 pages`,
-        //   structure: [
-        //     { type: "file", name: "about.html" },
-        //     { type: "file", name: "index.html" },
-        //     { type: "file", name: "copy.html" },
-        //     { type: "file", name: "krsna.html" },
-        //   ],
-        // };
+        const response = {
+          isScraped: true,
+          message: `Scraped 4 pages`,
+          structure: [
+            { type: "file", name: "about.html" },
+            { type: "file", name: "index.html" },
+            { type: "file", name: "subscription.html" },
+            { type: "file", name: "talk.html" },
+          ],
+        };
         setLoading(false);
         setGetData({
           isScraped: true,
@@ -76,10 +76,16 @@ export default function SearchBar({
         });
       }
     }
-    if(data.prompt){
-      
-    }
   };
+
+  const sendPromptToLlm = async(data: any) => {
+    const response = await promptToLlm(data.prompt);
+    setGetData({
+      ...getData,
+      isScraped: true,
+      content: response.message,
+    })
+  }
 
   useEffect(() => {
     if (watch("prompt")?.endsWith("@")) {
@@ -105,8 +111,7 @@ export default function SearchBar({
   return (
     <div className="flex flex-col items-center justify-center w-full h-full">
       <form className="relative w-full" onSubmit={handleSubmit(onSubmit)}>
-        {getData.isScraped ? (
-          <div className="flex flex-col relative w-full">
+          {/* <div className="flex flex-col relative w-full">
             <input
               ref={inputRef}
               {...register("prompt")}
@@ -172,8 +177,15 @@ export default function SearchBar({
                 </Command>
               </PopoverContent>
             </Popover>
-          </div>
-        ) : (
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center cursor-pointer"
+              onClick={handleSubmit(sendPromptToLlm)}
+            >
+              <SendHorizonal size={20} />
+            </button>
+          </div> */}
+
           <div className="flex flex-col">
             <input
               type="text"
@@ -193,10 +205,9 @@ export default function SearchBar({
               <Search size={20} />
             </button>
           </div>
-        )}
       </form>
 
-      <div className="flex flex-col h-full p-10">
+      {/* <div className="flex flex-col h-full p-10">
         {loading ? (
           <motion.div
             className="flex flex-col items-center justify-center h-full"
@@ -230,7 +241,7 @@ export default function SearchBar({
             <p>{getData.content}</p>
           </div>
         )}
-      </div>
+      </div> */}
     </div>
   );
 }

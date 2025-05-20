@@ -7,7 +7,8 @@ dotenv.config();
 const app = express();
 app.use(express.json())
 
-const allowedOrigins = [process.env.CLIENT_URL, process.env.DEV_URL];
+const allowedOrigins = [process.env.CLIENT_URL, process.env.DEV_URL, process.env.EXTRA_URL];
+
 // Middleware
 app.use(cors({
     origin: function (origin, callback) {
