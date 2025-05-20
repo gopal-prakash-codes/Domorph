@@ -14,6 +14,7 @@ interface ScrapeResult {
   content: string;
   structure: Array<{ type: string; name: string; children?: any[] }>;
   progress: string[];
+  domain: string;
 }
 
 // Define component props
@@ -25,6 +26,7 @@ interface SearchBarProps {
   setLoading: (value: boolean) => void;
   setGetData: (data: ScrapeResult) => void;
   setProgress: React.Dispatch<React.SetStateAction<string[]>>;
+  setDomain: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export default function SearchBar({
@@ -34,7 +36,8 @@ export default function SearchBar({
   setSentQuery,
   setLoading,
   setGetData,
-  setProgress
+  setProgress,
+  setDomain
 }: SearchBarProps) {
 
   const onSubmit: SubmitHandler<FormData> = async (data, event) => {
@@ -45,8 +48,9 @@ export default function SearchBar({
       setLoading(true);
       setSentQuery(true);
       try {
-        const response = await webScrape(correctedUrl, (path: string) => {
+        const response = await webScrape(correctedUrl, (path: string, domain: string) => {
           setProgress((prev) => [path, ...prev]); // Update progress in real-time
+          setDomain(domain);
         });
         setLoading(false);
         setGetData({
@@ -54,6 +58,7 @@ export default function SearchBar({
           content: response.content,
           structure: response.structure,
           progress: response.progress,
+          domain: response.domain,
         });
       } catch (error: any) {
         setLoading(false);
@@ -64,6 +69,7 @@ export default function SearchBar({
           content: "Couldn't scrape your website!",
           structure: [],
           progress: [],
+          domain: "",
         });
       }
     }

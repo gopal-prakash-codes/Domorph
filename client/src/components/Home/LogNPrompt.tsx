@@ -30,7 +30,8 @@ export default function LogNPrompt({
   setValue,
   getData,
   setGetData,
-  progress
+  progress,
+  domain
 }: {
   loading: any;
   register: any;
@@ -40,6 +41,7 @@ export default function LogNPrompt({
   getData: any;
   setGetData: any;
   progress: string[];
+  domain: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [openSelect, setOpenSelect] = useState(false);
@@ -54,7 +56,7 @@ export default function LogNPrompt({
     // });
   };
   console.log(getData);
-  
+
 
   useEffect(() => {
     if (watch("prompt")?.endsWith("@")) {
@@ -119,7 +121,7 @@ export default function LogNPrompt({
                 <motion.li
                   key={i}
                   animate={{ scale: scale }}
-                  transition={{duration:0.2}}
+                  transition={{ duration: 0.2 }}
                   className="list-none flex gap-x-1 items-center justify-center text-base bg-base-content/10 px-3 py-2 rounded-lg h-10"
                   layout
                 >
@@ -146,7 +148,7 @@ export default function LogNPrompt({
             className="absolute bottom-2 right-8 rounded-lg cursor-pointer flex items-center gap-x-1 bg-base-300/50 p-2 text-sm"
             onClick={handleSubmit(sendPromptToLlm)}
           >
-           Send <SendHorizonal size={17} />
+            Send <SendHorizonal size={17} />
           </button>
 
           <Popover open={openSelect} onOpenChange={setOpenSelect}>

@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 interface SSEMessage {
   type: "progress" | "complete" | "error";
   path?: string; // For progress messages
+  domain?: string;
   message?: string; // For complete and error messages
   structure?: Array<{ type: string; name: string; children?: any[] }>; // For complete message
 }
@@ -15,33 +16,38 @@ interface ScrapeResult {
   content: string;
   structure: Array<{ type: string; name: string; children?: any[] }>;
   progress: string[];
+  domain: string;
 }
 
 export const webScrape = async (
   url: string,
-  onProgress?: (path: string) => void
+  onProgress?: (path: string, domain: string) => void
 ): Promise<ScrapeResult> => {
   return new Promise((resolve, reject) => {
     const encodedUrl = encodeURIComponent(url);
-    const source = new EventSource(`http://localhost:5000/api/webScrape?url=${encodedUrl}`);
+    const serverUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:5001";
+    const source = new EventSource(`${serverUrl}/api/webScrape?url=${encodedUrl}`);
 
     const result: ScrapeResult = {
       isScraped: false,
       content: "",
       structure: [],
       progress: [],
+      domain: "",
     };
 
     source.onmessage = (event: MessageEvent) => {
       try {
         const data: SSEMessage = JSON.parse(event.data);
         if (data.type === "progress" && data.path) {
-          result.progress.push(data.path); // Type-safe: data.path is string
-          if (onProgress) onProgress(data.path);
+          result.progress.push(data.path);
+          if (data.domain) result.domain = data.domain;
+          if (onProgress && data.domain) onProgress(data.path, data.domain);
         } else if (data.type === "complete") {
           result.isScraped = true;
           result.content = data.message || "Scraping completed";
           result.structure = data.structure || [];
+          if (data.domain) result.domain = data.domain;
           source.close();
           resolve(result);
         } else if (data.type === "error") {

@@ -12,8 +12,20 @@ puppeteer.use(StealthPlugin());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CONCURRENCY_LIMIT = 5;
+const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
+const WEBSITE_BASE_PATH = process.env.WEBSITE_BASE_PATH || "/scraped_website";
+
+// New function to extract domain name from URL
+const extractDomainName = (url) => {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, '');
+  } catch (error) {
+    console.error("Error extracting domain:", error);
+    return "unknown-domain";
+  }
+};
 
 const getFolderStructure = async (dir, base = "") => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -95,7 +107,7 @@ const extractInternalLinks = async (page, baseUrl) => {
   return uniqueLinks;
 };
 
-async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
+async function scrapePage(browser, url, baseDir, visited, queue, domainName, onPageSaved) {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl || visited.has(normalizedUrl)) return;
   visited.add(normalizedUrl);
@@ -147,7 +159,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
         const imagePath = path.join(assetDir, imageName);
         const buffer = await response.buffer();
         await fs.writeFile(imagePath, buffer);
-        const localPath = `${process.env.CLIENT_URL}/scraped_website/assets/${imageName}`;
+        const localPath = `${process.env.CLIENT_URL}${WEBSITE_BASE_PATH}/${domainName}/assets/${imageName}`;
         localImagePaths.push(localPath);
       } catch (err) {
         console.warn(`Image download failed: ${imageUrl}, ${err.message}`);
@@ -177,7 +189,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
         const urlObj = new URL(srcUrl, page.url());
         const filename = path.basename(urlObj.pathname);
         const jsPath = path.join(jsDir, filename);
-        const localUrl = `${process.env.CLIENT_URL}/scraped_website/assets/js/${filename}`;
+        const localUrl = `${process.env.CLIENT_URL}${WEBSITE_BASE_PATH}/${domainName}/assets/js/${filename}`;
         const res = await fetch(urlObj.href);
         if (!res.ok) throw new Error(`JS fetch failed: ${urlObj.href}`);
         const buffer = await res.buffer();
@@ -210,19 +222,21 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
 
     await page.$$eval(
       "a[href]",
-      (anchors, baseOrigin) => {
+      (anchors, baseOrigin, domain, basePath) => {
         anchors.forEach((a) => {
           try {
             const url = new URL(a.href, baseOrigin);
             if (url.origin === baseOrigin) {
               let path = url.pathname.replace(/\/$/, "") || "/index";
               const hash = url.hash || "";
-              a.setAttribute("href", `/scraped_website${path}.html${hash}`);
+              a.setAttribute("href", `${basePath}/${domain}${path}.html${hash}`);
             }
-          } catch {}
+          } catch { }
         });
       },
-      new URL(url).origin
+      new URL(url).origin,
+      domainName,
+      WEBSITE_BASE_PATH
     );
 
     await page.$$eval("script", (scripts) => {
@@ -242,7 +256,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
       try {
         const css = await (await fetch(href)).text();
         cssContent += `\n/* ${href} */\n${css}`;
-      } catch {}
+      } catch { }
     }
 
     let content = await page.content();
@@ -251,7 +265,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
       content = content.replace("</head>", `<style>${cssContent}</style></head>`);
     }
 
-    content = content.replace("</head>", `<base href="/scraped_website/">\n</head>`);
+    content = content.replace("</head>", `<base href="${WEBSITE_BASE_PATH}/${domainName}/">\n</head>`);
 
     const filePath = urlToPath(baseDir, normalizedUrl);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -260,7 +274,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, onPageSaved) {
     // 🔥 Notify live path
     if (typeof onPageSaved === "function") {
       const relativePath = path.relative(baseDir, filePath).replace(/\\/g, "/");
-      onPageSaved(relativePath); // e.g., "index.html" or "plus/talk.html"
+      onPageSaved(relativePath, domainName); // e.g., "index.html" or "plus/talk.html"
     }
 
     console.log(`✅ Saved: ${normalizedUrl} → ${filePath}`);
@@ -283,7 +297,13 @@ export const webScraping = async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders(); // Ensure headers are sent immediately
 
-  const baseDir = path.join(__dirname, "..", "..", "client", "public", "scraped_website");
+  const domainName = extractDomainName(url);
+
+  const clientDir = process.env.CLIENT_DIR_PATH || path.join(__dirname, "..", "..", "client", "public");
+  const websiteDir = process.env.WEBSITE_DIR || "scraped_website";
+
+
+  const baseDir = path.join(clientDir, websiteDir, domainName);
   await fs.mkdir(baseDir, { recursive: true });
 
   const visited = new Set();
@@ -291,9 +311,15 @@ export const webScraping = async (req, res) => {
 
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: true });
 
-    // Function to send SSE message
+    const puppeteerOptions = {
+      headless: true,
+      args: process.env.PUPPETEER_ARGS ? process.env.PUPPETEER_ARGS.split(',') : []
+    };
+
+    browser = await puppeteer.launch(puppeteerOptions);
+
+
     const sendUpdate = (data) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
@@ -303,9 +329,9 @@ export const webScraping = async (req, res) => {
       await Promise.all(
         batch.map((link) =>
           limit(() =>
-            scrapePage(browser, link, baseDir, visited, queue, (savedPath) => {
+            scrapePage(browser, link, baseDir, visited, queue, domainName, (savedPath, domain) => {
               // Send live update for each saved page
-              sendUpdate({ type: "progress", path: savedPath });
+              sendUpdate({ type: "progress", path: savedPath, domain });
               console.log("📄 File saved:", savedPath);
             })
           )
@@ -313,26 +339,27 @@ export const webScraping = async (req, res) => {
       );
     }
 
-    // After scraping completes, send the folder structure
+
     const folderStructure = await getFolderStructure(baseDir);
     sendUpdate({
       type: "complete",
       message: `Scraped ${visited.size} pages successfully.`,
       structure: folderStructure,
+      domain: domainName,
     });
 
-    // Close the SSE connection
+
     res.end();
   } catch (err) {
     console.error("Scraping failed:", err);
-    // Send error update
+
     res.write(`data: ${JSON.stringify({ type: "error", message: "Scraping failed: " + err.message })}\n\n`);
     res.end();
   } finally {
     if (browser) await browser.close();
   }
 
-  // Handle client disconnect
+
   req.on("close", () => {
     if (browser) browser.close();
     res.end();

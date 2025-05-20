@@ -18,18 +18,21 @@ interface ScrapeResult {
   content: string;
   structure: Array<{ type: string; name: string; children?: any[] }>;
   progress: string[];
+  domain: string;
 }
 
 export function Home() {
-  const [progress, setProgress] = useState<string[]>([]); 
+  const [progress, setProgress] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>();
   const [sentQuery, setSentQuery] = useState<boolean>(false);
+  const [domain, setDomain] = useState<string>("");
   const [getData, setGetData] = useState<ScrapeResult>({
     isScraped: false,
     content: "",
     structure: [{ type: "file", name: "" }],
     progress: [],
+    domain: "",
   });
 
   return (
@@ -58,6 +61,7 @@ export function Home() {
             setLoading={setLoading}
             setGetData={setGetData}
             setProgress={setProgress}
+            setDomain={setDomain}
           />
         </motion.div>
       </motion.div>
@@ -77,6 +81,7 @@ export function Home() {
             getData={getData}
             setGetData={setGetData}
             progress={progress}
+            domain={domain}
           />
         </motion.div>
         <motion.div
@@ -85,7 +90,7 @@ export function Home() {
           animate={sentQuery && { x: -20, scale: 1, opacity: 1 }}
           transition={{ duration: 0.8, delay: 1 }}
         >
-          <LivePreview loading={loading} />
+          <LivePreview loading={loading} domain={domain} />
         </motion.div>
       </div>
     </motion.div>
