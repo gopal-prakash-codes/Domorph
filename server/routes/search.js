@@ -1,6 +1,7 @@
 import express from 'express';
 import { webScraping } from '../controllers/webScraping.js';
 import { promptToLlm } from '../controllers/promptToLlm.js';
+import { uiModifierAgent } from '../controllers/uiModifierAgent.js';
 const router = express.Router();
 
 
@@ -16,5 +17,6 @@ router.get('/test-cors', (req, res) => {
 
 router.get('/webScrape', webScraping);
 router.post('/prompttollm', promptToLlm);
+router.post('/modify-ui', uiModifierAgent);
 
 export default router;
