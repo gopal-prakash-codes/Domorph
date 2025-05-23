@@ -1,6 +1,3 @@
-
-export default function LivePreview({ loading, domain }: { loading: boolean; domain: string }) {
-  const clientUrl = import.meta.env.VITE_CLIENT_URL || " http://116.202.210.102:5181";
 import { HardDriveDownload, Inspect } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ToolTip from "../ToolTip";
@@ -19,7 +16,6 @@ export default function LivePreview({
   setSelectedFiles: any;
 }) {
   const clientUrl = import.meta.env.VITE_CLIENT_URL || "http://127.0.0.1:5173";
-
 
   const [inspecting, setInspecting] = useState(false);
   const inspectingRef = useRef(inspecting);

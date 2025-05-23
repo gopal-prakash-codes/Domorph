@@ -8,9 +8,7 @@ import pLimit from "p-limit";
 puppeteer.use(StealthPlugin());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
-const limit = pLimit(CONCURRENCY_LIMIT);
-const WEBSITE_BASE_PATH = process.env.WEBSITE_BASE_PATH || "/scraped_website";
+
 
 
 
