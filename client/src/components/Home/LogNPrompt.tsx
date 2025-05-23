@@ -18,7 +18,6 @@ import { v4 as uuid } from 'uuid';
 
 const modifyingLogs = [
   {
-    content: "Analyzing and modifying UI...",
     code: 
 `<button type="button"
   className="rounded-lg p-2 text-sm m-3">
@@ -26,7 +25,6 @@ const modifyingLogs = [
 </button>`,
   },
   {
-    content: "Calling AI...",
     code: 
 `<motion.li
   initial={{ y: -30, opacity: 0 }}
@@ -40,7 +38,6 @@ const modifyingLogs = [
 </motion.li>`,
   },
   {
-    content: "AI modification in progress...",
     code: 
 `<iframe
   src="clientUrl/scraped_website/index.html"
@@ -52,7 +49,32 @@ const modifyingLogs = [
   allowFullScreen
 ></iframe>`,
   },
+  {
+    code: 
+`<div className="flex flex-col bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
+  <p>
+    <strong>File:</strong>
+    {selectedElInfo.url}
+  </p>
+  <p>
+    <strong>Tag:</strong> {selectedElInfo.tagName}
+  </p>
+</div>`,
+  },
+  {
+    code: 
+`<div className="flex flex-col bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
+  <p>
+    <strong>File:</strong>
+    {selectedElInfo.url}
+  </p>
+  <p>
+    <strong>Tag:</strong> {selectedElInfo.tagName}
+  </p>
+</div>`,
+  },
 ];
+
 export default function LogNPrompt({
   loading,
   register,
@@ -82,18 +104,14 @@ export default function LogNPrompt({
   const [openSelect, setOpenSelect] = useState(false);
   const [popoverWidth, setPopoverWidth] = useState<number>(0);
   const [modifying, setModifying] = useState(false);
-  const [modifiedFiles, setModifiedFiles] = useState<
-    Array<{ name: string; path: string }>
-  >([]);
+  // const [modifiedFiles, setModifiedFiles] = useState<
+  //   Array<{ name: string; path: string }>
+  // >([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [displayLogs, setDisplayLogs] = useState<{
-    content: string;
     code: string;
   }>(modifyingLogs[0]);
 
-  // const changeDisplayLogs = () => {
-  //   setDisplayLogs(modifyingLogs[2]);
-  // }
   const sendPromptToAgent = async (data: any) => {
     if (!data.prompt || !domain) {
       toast.error("Please enter a prompt and ensure a website has been scraped");
@@ -108,7 +126,7 @@ export default function LogNPrompt({
       const result = await webEnhance(data.prompt, uuid(), domain);
 
       if (result.success) {
-        setModifiedFiles(result.modified_files);
+        // setModifiedFiles(result.modified_files);
         setStatusMessage(`Successfully modified ${result.modified_files.length} files`);
 
         // Trigger a reload of the preview iframe to show changes
@@ -127,23 +145,30 @@ export default function LogNPrompt({
     }
   };
 
-  // const sendPromptToAgent = async () => {
-  //   // setModifying(true);
-  //   // setStatusMessage("Analyzing and modifying UI...");
+  useEffect(() => {
+    let currentIndex = 0;
+    let intervalId: NodeJS.Timeout;
 
-  //   // try {
-  //   //   for (let i = 0; i < 3; i++) {
-  //   //     let log = modifyingLogs[i];
-  //   //     console.log(log);
-  //   //     setDisplayLogs(log);
-  //   //     await new Promise(resolve => setTimeout(resolve, 5000));
-  //   //   }
+    if (modifying) {
+      // Set initial log
+      setDisplayLogs(modifyingLogs[0]);
       
-  //   //   setStatusMessage("UI modified successfully");
-  //   // } finally {
-  //   //   setModifying(false);
-  //   // }
-  // };
+      // Start interval to cycle through logs
+      intervalId = setInterval(() => {
+        currentIndex = (currentIndex + 1) % modifyingLogs.length;
+        setDisplayLogs(modifyingLogs[currentIndex]);
+      }, 7000); // Change log every 5 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [modifying]);
+  
+  
+  
   useEffect(() => {
     const currentPrompt = watch("prompt");
     if (typeof currentPrompt === "string" && currentPrompt.endsWith("@")) {
@@ -179,7 +204,7 @@ export default function LogNPrompt({
             ) : modifying ? (
               <h1 className="text-lg flex items-center gap-x-1">
                 <span className="loader !w-[20px] !h-[20px] after:!w-[10px] after:!h-[10px]"></span>
-                {displayLogs.content}
+                {statusMessage}
               </h1>
             ) : (
               <h1 className="text-lg flex items-center gap-x-1">
