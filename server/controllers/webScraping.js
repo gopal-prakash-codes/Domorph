@@ -1,4 +1,3 @@
-// scraping.js
 import fs from "fs/promises";
 import path from "path";
 import fetch from "node-fetch";
@@ -6,16 +5,12 @@ import { fileURLToPath } from "url";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import pLimit from "p-limit";
-
 puppeteer.use(StealthPlugin());
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
 const WEBSITE_BASE_PATH = process.env.WEBSITE_BASE_PATH || "/scraped_website";
-
 // New function to extract domain name from URL
 const extractDomainName = (url) => {
   try {
@@ -26,16 +21,13 @@ const extractDomainName = (url) => {
     return "unknown-domain";
   }
 };
-
 const getFolderStructure = async (dir, base = "") => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const structure = [];
-
   for (const entry of entries) {
     if (entry.name === "assets") continue;
     const relativePath = path.join(base, entry.name);
     const fullPath = path.join(dir, entry.name);
-
     if (entry.isDirectory()) {
       const children = await getFolderStructure(fullPath, relativePath);
       structure.push({ type: "folder", name: entry.name, children });
@@ -43,10 +35,8 @@ const getFolderStructure = async (dir, base = "") => {
       structure.push({ type: "file", name: entry.name });
     }
   }
-
   return structure;
 };
-
 const autoScroll = async (page) => {
   await page.evaluate(async () => {
     await new Promise((resolve) => {
@@ -64,7 +54,6 @@ const autoScroll = async (page) => {
     });
   });
 };
-
 const normalizeUrl = (rawUrl) => {
   try {
     const url = new URL(rawUrl);
@@ -75,14 +64,12 @@ const normalizeUrl = (rawUrl) => {
     return null;
   }
 };
-
 const urlToPath = (baseDir, url) => {
   const parsed = new URL(url);
   let pathname = parsed.pathname.replace(/\/$/, "");
   if (pathname === "") pathname = "/index";
   return path.join(baseDir, `${pathname}.html`);
 };
-
 const extractInternalLinks = async (page, baseUrl) => {
   const origin = new URL(baseUrl).origin;
   const links = await page.$$eval("a[href]", (anchors) =>
@@ -106,21 +93,17 @@ const extractInternalLinks = async (page, baseUrl) => {
   );
   return uniqueLinks;
 };
-
 async function scrapePage(browser, url, baseDir, visited, queue, domainName, onPageSaved) {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl || visited.has(normalizedUrl)) return;
   visited.add(normalizedUrl);
-
   const page = await browser.newPage();
   try {
     await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await autoScroll(page);
-
     const assetDir = path.join(baseDir, "assets");
     const jsDir = path.join(assetDir, "js");
     await fs.mkdir(jsDir, { recursive: true });
-
     // Handle images
     const imageHandles = await page.$$eval("img", (imgs) => {
       const base = location.origin;
@@ -142,9 +125,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         })
         .filter(Boolean);
     });
-
     const localImagePaths = [];
-
     for (let i = 0; i < imageHandles.length; i++) {
       const imageUrl = imageHandles[i];
       try {
@@ -166,7 +147,6 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         localImagePaths.push(imageUrl);
       }
     }
-
     await page.evaluate((newSources) => {
       const imgs = Array.from(document.querySelectorAll("img"));
       imgs.forEach((img, i) => {
@@ -176,14 +156,11 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         img.removeAttribute("srcset");
       });
     }, localImagePaths);
-
     // Download and rewrite JS files
     const scriptSrcs = await page.$$eval("script[src]", (scripts) =>
       scripts.map((s) => s.src)
     );
-
     const localScriptPaths = [];
-
     for (const srcUrl of scriptSrcs) {
       try {
         const urlObj = new URL(srcUrl, page.url());
@@ -199,7 +176,6 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         console.warn(`JS download failed: ${srcUrl}, ${err.message}`);
       }
     }
-
     await page.$$eval(
       "script[src]",
       (scripts, replacements) => {
@@ -212,14 +188,12 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
       },
       localScriptPaths
     );
-
     const internalLinks = await extractInternalLinks(page, normalizedUrl);
     for (const link of internalLinks) {
       if (!visited.has(link) && !queue.includes(link)) {
         queue.push(link);
       }
     }
-
     await page.$$eval(
       "a[href]",
       (anchors, baseOrigin, domain, basePath) => {
@@ -238,7 +212,6 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
       domainName,
       WEBSITE_BASE_PATH
     );
-
     await page.$$eval("script", (scripts) => {
       scripts.forEach((script) => {
         const content = script.outerHTML;
@@ -246,11 +219,9 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         script.replaceWith(comment);
       });
     });
-
     const stylesheets = await page.$$eval("link[rel='stylesheet']", (links) =>
       links.map((link) => link.href)
     );
-
     let cssContent = "";
     for (const href of stylesheets) {
       try {
@@ -258,72 +229,53 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
         cssContent += `\n/* ${href} */\n${css}`;
       } catch { }
     }
-
     let content = await page.content();
-
     if (cssContent) {
       content = content.replace("</head>", `<style>${cssContent}</style></head>`);
     }
-
     content = content.replace("</head>", `<base href="${WEBSITE_BASE_PATH}/${domainName}/">\n</head>`);
-
     const filePath = urlToPath(baseDir, normalizedUrl);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
-
-    // 🔥 Notify live path
+    // :fire: Notify live path
     if (typeof onPageSaved === "function") {
       const relativePath = path.relative(baseDir, filePath).replace(/\\/g, "/");
       onPageSaved(relativePath, domainName); // e.g., "index.html" or "plus/talk.html"
     }
-
-    console.log(`✅ Saved: ${normalizedUrl} → ${filePath}`);
+    console.log(`:white_check_mark: Saved: ${normalizedUrl} → ${filePath}`);
   } catch (err) {
-    console.warn(`❌ Failed ${normalizedUrl}: ${err.message}`);
+    console.warn(`:x: Failed ${normalizedUrl}: ${err.message}`);
   } finally {
     await page.close();
   }
 }
-
 export const webScraping = async (req, res) => {
   const { url } = req.query || {};
   if (!url || typeof url !== "string") {
     return res.status(400).json({ message: "Invalid or missing URL." });
   }
-
   // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders(); // Ensure headers are sent immediately
-
   const domainName = extractDomainName(url);
-
   const clientDir = process.env.CLIENT_DIR_PATH || path.join(__dirname, "..", "..", "client", "public");
   const websiteDir = process.env.WEBSITE_DIR || "scraped_website";
-
-
   const baseDir = path.join(clientDir, websiteDir, domainName);
   await fs.mkdir(baseDir, { recursive: true });
-
   const visited = new Set();
   const queue = [normalizeUrl(url)];
-
   let browser;
   try {
-
     const puppeteerOptions = {
       headless: true,
       args: process.env.PUPPETEER_ARGS ? process.env.PUPPETEER_ARGS.split(',') : []
     };
-
     browser = await puppeteer.launch(puppeteerOptions);
-
-
     const sendUpdate = (data) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
-
     while (queue.length > 0) {
       const batch = queue.splice(0, CONCURRENCY_LIMIT);
       await Promise.all(
@@ -332,14 +284,12 @@ export const webScraping = async (req, res) => {
             scrapePage(browser, link, baseDir, visited, queue, domainName, (savedPath, domain) => {
               // Send live update for each saved page
               sendUpdate({ type: "progress", path: savedPath, domain });
-              console.log("📄 File saved:", savedPath);
+              console.log(":page_facing_up: File saved:", savedPath);
             })
           )
         )
       );
     }
-
-
     const folderStructure = await getFolderStructure(baseDir);
     sendUpdate({
       type: "complete",
@@ -347,19 +297,14 @@ export const webScraping = async (req, res) => {
       structure: folderStructure,
       domain: domainName,
     });
-
-
     res.end();
   } catch (err) {
     console.error("Scraping failed:", err);
-
     res.write(`data: ${JSON.stringify({ type: "error", message: "Scraping failed: " + err.message })}\n\n`);
     res.end();
   } finally {
     if (browser) await browser.close();
   }
-
-
   req.on("close", () => {
     if (browser) browser.close();
     res.end();

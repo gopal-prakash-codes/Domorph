@@ -19,7 +19,12 @@
     "p-limit": "^6.2.0",
     "puppeteer": "^24.8.2",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "cheerio": "^1.0.0",
+    "diff-match-patch": "^1.0.5",
+     "zod": "^3.25.7",
+    "zod-to-json-schema": "^3.24.5",
+    "@langchain/community": "^0.0.34"
   },
   "scripts": {
     "start": "node server.js",

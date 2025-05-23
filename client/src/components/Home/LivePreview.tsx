@@ -1,5 +1,5 @@
 export default function LivePreview({ loading, domain }: { loading: boolean; domain: string }) {
-  const clientUrl = import.meta.env.VITE_CLIENT_URL || "http://127.0.0.1:5173";
+  const clientUrl = import.meta.env.VITE_CLIENT_URL || " http://116.202.210.102:5181";
 
   return (
     <div className="flex flex-col items-center w-full h-11/12 border border-base-content/20 rounded-lg text-base-100">
