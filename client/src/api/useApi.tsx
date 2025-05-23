@@ -93,7 +93,7 @@ export const promptToLlm = async (prompt: string) => {
 
 export const modifyUI = async (prompt: string, domain: string): Promise<UIModificationResult> => {
   try {
-    const response = await apiInstance.post("/modify-ui", { prompt, domain });
+    const response = await apiInstance.post("/newprompttollm", { prompt, domain });
 
     if (response.status === 200) {
       if (response.data.success) {
@@ -120,3 +120,34 @@ export const modifyUI = async (prompt: string, domain: string): Promise<UIModifi
     };
   }
 };
+
+export const webEnhance = async (prompt: string, uuid: string, domain: string): Promise<UIModificationResult> => {
+  try {
+    const response = await apiInstance.post(`http://116.202.210.102:5001/api/agent/chat?domainName=${domain}`, { message: prompt, userId: uuid });
+
+    if (response.status === 200) {
+      if (response.data.success) {
+        toast.success("UI modified successfully!");
+      } else {
+        toast.error(response.data.message);
+      }
+      return response.data;
+    } else {
+      toast.error("Failed to modify the UI!");
+      return {
+        success: false,
+        message: "Failed to modify the UI!",
+        modified_files: [],
+      };
+    }
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "An error occurred while modifying the UI";
+    toast.error(errorMessage);
+    return {
+      success: false,
+      message: errorMessage,
+      modified_files: [],
+    };
+  }
+};
+

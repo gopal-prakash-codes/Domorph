@@ -11,6 +11,15 @@ const __dirname = path.dirname(__filename);
 const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
 const WEBSITE_BASE_PATH = process.env.WEBSITE_BASE_PATH || "/scraped_website";
+
+
+
+
+const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
+const limit = pLimit(CONCURRENCY_LIMIT);
+const WEBSITE_BASE_PATH = process.env.WEBSITE_BASE_PATH || "/scraped_website";
+
+
 // New function to extract domain name from URL
 const extractDomainName = (url) => {
   try {
@@ -138,6 +147,7 @@ async function scrapePage(browser, url, baseDir, visited, queue, domainName, onP
           extension = "jpg";
         const imageName = `image_${Date.now()}_${i}.${extension}`;
         const imagePath = path.join(assetDir, imageName);
+        
         const buffer = await response.buffer();
         await fs.writeFile(imagePath, buffer);
         const localPath = `${process.env.CLIENT_URL}${WEBSITE_BASE_PATH}/${domainName}/assets/${imageName}`;
@@ -264,6 +274,7 @@ export const webScraping = async (req, res) => {
   const websiteDir = process.env.WEBSITE_DIR || "scraped_website";
   const baseDir = path.join(clientDir, websiteDir, domainName);
   await fs.mkdir(baseDir, { recursive: true });
+
   const visited = new Set();
   const queue = [normalizeUrl(url)];
   let browser;
