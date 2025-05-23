@@ -1,17 +1,20 @@
 {
   "dependencies": {
     "@anthropic-ai/sdk": "^0.51.0",
-    "@langchain/anthropic": "^0.3.20",
+    "@langchain/anthropic": "^0.3.21",
     "@langchain/core": "^0.3.56",
+    "@langchain/groq": "^0.2.2",
     "@langchain/langgraph": "^0.2.72",
     "@langchain/openai": "^0.5.10",
     "anthropic": "^0.0.0",
+    "archiver": "^7.0.1",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
+    "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "langchain": "^0.3.26",
+    "langchain": "^0.3.27",
     "langsmith": "^0.3.29",
     "mime-types": "^3.0.1",
     "node-fetch": "^3.3.2",
@@ -19,7 +22,8 @@
     "p-limit": "^6.2.0",
     "puppeteer": "^24.8.2",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "zod": "^3.25.20"
   },
   "scripts": {
     "start": "node server.js",

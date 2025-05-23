@@ -21,9 +21,17 @@ interface ScrapeResult {
   domain: string;
 }
 
+
+interface ElementInfo {
+  tagName: string;
+  classList: string[];
+  inlineStyles: string;
+  innerText: string ;
+  url: string;
+}
 export function Home() {
   const [progress, setProgress] = useState<string[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>();
   const [sentQuery, setSentQuery] = useState<boolean>(false);
   const [domain, setDomain] = useState<string>("");
@@ -34,6 +42,8 @@ export function Home() {
     progress: [],
     domain: "",
   });
+  const [selectedElInfo, setSelectedElInfo] = useState<ElementInfo | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<object[]>([]);
 
   return (
     <motion.div className="flex flex-col h-full">
@@ -79,9 +89,11 @@ export function Home() {
             watch={watch}
             setValue={setValue}
             getData={getData}
-            setGetData={setGetData}
             progress={progress}
             domain={domain}
+            selectedElInfo={selectedElInfo}
+            // selectedFiles={selectedFiles}
+            // setSelectedFiles={setSelectedFiles}
           />
         </motion.div>
         <motion.div
@@ -90,7 +102,7 @@ export function Home() {
           animate={sentQuery && { x: -20, scale: 1, opacity: 1 }}
           transition={{ duration: 0.8, delay: 1 }}
         >
-          <LivePreview loading={loading} domain={domain} />
+          <LivePreview loading={loading} domain={domain} setSelectedElInfo={setSelectedElInfo} setSelectedFiles={setSelectedFiles} selectedFiles={selectedFiles} />
         </motion.div>
       </div>
     </motion.div>
