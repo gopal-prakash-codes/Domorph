@@ -966,7 +966,389 @@ async function buildContextPrompt(file, instruction, domainName, maxTokens = 600
   }
 }
 
-// Enhanced intelligentHtmlUpdate function to use context-aware prompts
+// New function to create a button based on natural language instruction
+async function createNewButton(html, instruction, targetContainer) {
+  console.log(`🆕 Creating new button based on instruction: "${instruction}"`);
+  
+  // Get Anthropic API key from environment
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    console.error("❌ Missing ANTHROPIC_API_KEY environment variable");
+    throw new Error("Missing API key configuration");
+  }
+  
+  // Parse the HTML to understand the context
+  const $ = cheerio.load(html);
+  
+  // Find the target container where the button should be added
+  let containerSelector = targetContainer || '';
+  
+  // If no specific container is provided, try to find a reasonable container
+  if (!containerSelector) {
+    // Look for common container elements in priority order
+    const containerCandidates = [
+      '.buttons', '.button-container', '.btn-group', '.actions', 
+      '.nav-buttons', '.controls', '.cta-container', '.navigation',
+      'nav', 'header .container', 'main .container', '.content', 
+      'footer .container', '.footer-links'
+    ];
+    
+    for (const candidate of containerCandidates) {
+      if ($(candidate).length > 0) {
+        containerSelector = candidate;
+        console.log(`Found potential button container: ${containerSelector}`);
+        break;
+      }
+    }
+    
+    // If still no container found, look for elements that already have buttons
+    if (!containerSelector) {
+      $('button, .btn, .button, a[class*="btn"], a[class*="button"]').each(function() {
+        const parent = $(this).parent();
+        if (parent.children('button, .btn, .button, a[class*="btn"], a[class*="button"]').length > 0) {
+          containerSelector = parent.prop('tagName').toLowerCase();
+          if (parent.attr('class')) {
+            containerSelector += '.' + parent.attr('class').replace(/\s+/g, '.');
+          } else if (parent.attr('id')) {
+            containerSelector += '#' + parent.attr('id');
+          }
+          console.log(`Found container with existing buttons: ${containerSelector}`);
+          return false; // break the loop
+        }
+      });
+    }
+    
+    // If still no container, use the main content area or body
+    if (!containerSelector) {
+      if ($('main').length > 0) {
+        containerSelector = 'main';
+      } else if ($('.content').length > 0) {
+        containerSelector = '.content';
+      } else if ($('.container').length > 0) {
+        containerSelector = '.container';
+      } else {
+        containerSelector = 'body';
+      }
+      console.log(`Using fallback container: ${containerSelector}`);
+    }
+  }
+  
+  // Extract existing buttons to understand the styling
+  const existingButtons = [];
+  $('button, .btn, .button, a[class*="btn"], a[class*="button"]').each(function() {
+    existingButtons.push($.html(this));
+  });
+  
+  // Extract CSS styles from the page to understand the design language
+  const cssStyles = [];
+  $('style').each(function() {
+    cssStyles.push($(this).html());
+  });
+  
+  // Create a prompt for the LLM to generate the button
+  const prompt = `
+You are an expert web developer tasked with creating a new HTML button based on user instructions.
+
+USER INSTRUCTION: "${instruction}"
+
+EXISTING BUTTONS ON THE PAGE (for style reference):
+${existingButtons.slice(0, 3).join('\n\n')}
+
+CSS STYLES ON THE PAGE:
+${cssStyles.join('\n\n')}
+
+TARGET CONTAINER WHERE BUTTON WILL BE PLACED: ${containerSelector}
+
+Your task:
+1. Create a new HTML button element that matches the user's request
+2. Use ONLY inline CSS styles (style="...") for all styling - DO NOT use Tailwind CSS or any CSS classes
+3. Include appropriate inline styles and attributes
+4. If the instruction specifies functionality (like a link), include the necessary attributes
+5. Return ONLY the HTML for the new button element, nothing else
+
+The button should:
+- Use inline CSS for all styling (background-color, color, padding, etc.)
+- Include any text or icon mentioned in the instruction
+- Have appropriate styling to match the site's design
+- Include any necessary attributes (href for links, etc.)
+
+Example of good button with inline styles:
+<button style="background-color: #4285f4; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Subscribe</button>
+
+HTML for new button:`;
+
+  try {
+    // Send request to Claude
+    console.log(`🤖 Sending request to Anthropic API to create button...`);
+    
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 1000,
+        temperature: 0.2,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Anthropic API error: ${response.status}`, errorText);
+      throw new Error(`Error from Anthropic API: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    const buttonHtml = result.content[0].text.trim();
+    
+    // Remove any markdown code block formatting if present
+    const cleanButtonHtml = buttonHtml.replace(/```(?:html)?\s*([\s\S]*?)\s*```/g, '$1').trim();
+    
+    console.log(`✅ Successfully created button: ${cleanButtonHtml.substring(0, 100)}...`);
+    
+    // Return both the button HTML and the container selector
+    return {
+      buttonHtml: cleanButtonHtml,
+      containerSelector: containerSelector
+    };
+  } catch (error) {
+    console.error(`❌ Error creating button:`, error);
+    throw error;
+  }
+}
+
+// Helper function to find all buttons in the document
+async function findAllButtons($) {
+  console.log(`🔍 Finding all buttons in the document`);
+  
+  const buttons = [];
+  
+  // Find all button elements
+  $('button').each(function() {
+    buttons.push({
+      element: $(this),
+      type: 'button',
+      text: $(this).text().trim(),
+      html: $.html($(this))
+    });
+  });
+  
+  // Find button-like elements
+  $('a.btn, a.button, .btn, .button, input[type="button"], input[type="submit"]').each(function() {
+    if ($(this).prop('tagName').toLowerCase() !== 'button') { // Skip actual buttons already counted
+      buttons.push({
+        element: $(this),
+        type: 'button-like',
+        text: $(this).text().trim() || $(this).val() || $(this).attr('value') || '',
+        html: $.html($(this))
+      });
+    }
+  });
+  
+  // Find other clickable elements that might be buttons
+  $('a, div[onclick], span[onclick]').each(function() {
+    const $el = $(this);
+    const tagName = $el.prop('tagName').toLowerCase();
+    
+    // Skip elements already identified as buttons
+    if (tagName === 'button' || $el.hasClass('btn') || $el.hasClass('button')) {
+      return;
+    }
+    
+    // Check if it looks like a button
+    const hasButtonStyles = 
+      $el.css('cursor') === 'pointer' ||
+      $el.css('padding') !== undefined ||
+      $el.css('border-radius') !== undefined;
+    
+    const isClickable = 
+      $el.attr('onclick') !== undefined || 
+      (tagName === 'a' && $el.attr('href') !== undefined);
+    
+    if (hasButtonStyles || isClickable) {
+      buttons.push({
+        element: $el,
+        type: 'clickable',
+        text: $el.text().trim(),
+        html: $.html($el)
+      });
+    }
+  });
+  
+  console.log(`Found ${buttons.length} buttons/button-like elements`);
+  return buttons;
+}
+
+// Helper function to find the best matching button for a given target text
+function findBestButtonMatch(buttons, targetText) {
+  if (!targetText || targetText.trim() === '') {
+    console.log('No target text provided, will return all buttons');
+    return buttons;
+  }
+  
+  console.log(`Finding best match for "${targetText}" among ${buttons.length} buttons`);
+  
+  // Normalize target text for comparison
+  const normalizedTarget = targetText.toLowerCase().trim();
+  
+  // Generate variations of the target text for better matching
+  const targetVariations = generateTextVariations(normalizedTarget);
+  console.log(`Generated ${targetVariations.length} variations of the target text`);
+  
+  // Score each button based on text similarity
+  const scoredButtons = buttons.map(button => {
+    const buttonText = button.text.toLowerCase().trim();
+    
+    // Check for exact match
+    if (buttonText === normalizedTarget) {
+      return { ...button, score: 100 };
+    }
+    
+    // Check for variation matches
+    for (const variation of targetVariations) {
+      if (buttonText === variation) {
+        return { ...button, score: 90 };
+      }
+    }
+    
+    // Check if button text contains target text
+    if (buttonText.includes(normalizedTarget)) {
+      return { ...button, score: 80 };
+    }
+    
+    // Check if target text contains button text
+    if (normalizedTarget.includes(buttonText) && buttonText.length > 3) {
+      return { ...button, score: 70 };
+    }
+    
+    // Check for partial matches with variations
+    for (const variation of targetVariations) {
+      if (buttonText.includes(variation) || variation.includes(buttonText)) {
+        return { ...button, score: 60 };
+      }
+    }
+    
+    // Check for word-level matches
+    const targetWords = normalizedTarget.split(/\s+/);
+    const buttonWords = buttonText.split(/\s+/);
+    
+    const matchingWords = targetWords.filter(word => 
+      buttonWords.some(bWord => bWord === word || bWord.includes(word) || word.includes(bWord))
+    );
+    
+    if (matchingWords.length > 0) {
+      const wordMatchScore = Math.min(50 + (matchingWords.length * 10), 50);
+      return { ...button, score: wordMatchScore };
+    }
+    
+    // Low relevance
+    return { ...button, score: 0 };
+  });
+  
+  // Sort by score
+  scoredButtons.sort((a, b) => b.score - a.score);
+  
+  // If the highest score is good enough, return just that button
+  if (scoredButtons.length > 0 && scoredButtons[0].score >= 70) {
+    console.log(`Found high-confidence match: "${scoredButtons[0].text}" with score ${scoredButtons[0].score}`);
+    return [scoredButtons[0]];
+  }
+  
+  // Otherwise, return all buttons with a reasonable score
+  const reasonableMatches = scoredButtons.filter(button => button.score >= 40);
+  console.log(`Found ${reasonableMatches.length} reasonable matches`);
+  
+  return reasonableMatches.length > 0 ? reasonableMatches : scoredButtons;
+}
+
+// Generate variations of text for better button matching
+function generateTextVariations(text) {
+  const variations = new Set([text]);
+  
+  // Split into words
+  const words = text.split(/\s+/);
+  
+  // Add individual words if the text has multiple words
+  if (words.length > 1) {
+    words.forEach(word => {
+      if (word.length > 3) { // Only add meaningful words
+        variations.add(word);
+      }
+    });
+  }
+  
+  // Add common variations
+  if (text.includes('sign in')) {
+    variations.add('signin');
+    variations.add('login');
+    variations.add('log in');
+  }
+  
+  if (text.includes('sign up')) {
+    variations.add('signup');
+    variations.add('register');
+  }
+  
+  if (text.includes('log in')) {
+    variations.add('login');
+    variations.add('sign in');
+  }
+  
+  if (text.includes('submit')) {
+    variations.add('send');
+    variations.add('save');
+  }
+  
+  if (text.includes('cancel')) {
+    variations.add('close');
+    variations.add('back');
+  }
+  
+  // Handle common button text variations
+  const commonVariations = {
+    'submit': ['save', 'send', 'confirm', 'ok'],
+    'cancel': ['close', 'back', 'return'],
+    'delete': ['remove', 'trash'],
+    'edit': ['modify', 'change', 'update'],
+    'add': ['create', 'new', 'insert'],
+    'search': ['find', 'lookup', 'query'],
+    'login': ['sign in', 'signin', 'log in'],
+    'register': ['sign up', 'signup', 'create account'],
+    'continue': ['next', 'proceed'],
+    'previous': ['back', 'prev'],
+    'buy': ['purchase', 'order', 'checkout'],
+    'download': ['get', 'install'],
+    'subscribe': ['follow', 'join'],
+    'contact': ['message', 'reach out']
+  };
+  
+  // Add variations based on common button texts
+  for (const [key, synonyms] of Object.entries(commonVariations)) {
+    if (text.includes(key)) {
+      synonyms.forEach(synonym => variations.add(synonym));
+    }
+    
+    // Also check the reverse - if text contains a synonym, add the key
+    synonyms.forEach(synonym => {
+      if (text.includes(synonym)) {
+        variations.add(key);
+      }
+    });
+  }
+  
+  return [...variations];
+}
+
+// Enhanced intelligentHtmlUpdate function to handle button creation
 export const intelligentHtmlUpdate = async (file, instruction, domainName) => {
   console.log(`🧠 Intelligent HTML Update - File: ${file}, Instruction: "${instruction}", Domain: "${domainName}"`);
   
@@ -1011,6 +1393,56 @@ export const intelligentHtmlUpdate = async (file, instruction, domainName) => {
     // Parse instruction to extract target element information
     const { targetElement, targetAction } = parseInstruction(instruction);
     console.log(`🔍 Parsed instruction: ${JSON.stringify({ targetElement, targetAction })}`);
+    
+    // Check if this is a button creation request
+    if (targetAction.type === 'create') {
+      console.log(`🆕 Processing button creation request`);
+      
+      try {
+        // Create the new button
+        const { buttonHtml, containerSelector } = await createNewButton(content, instruction);
+        
+        // Load the document
+        const $ = cheerio.load(content);
+        
+        // Find the target container
+        const $container = $(containerSelector);
+        
+        if ($container.length === 0) {
+          throw new Error(`Could not find container: ${containerSelector}`);
+        }
+        
+        // Add the button to the container
+        $container.append(buttonHtml);
+        
+        // Get the updated content
+        const updatedContent = $.html();
+        
+        // Write the updated content back to the file
+        await fs.writeFile(filePath, updatedContent, 'utf-8');
+        
+        // Restart the server
+        await restartServer(baseDir);
+        
+        return { 
+          success: true, 
+          message: `Successfully added new button to ${file} based on instruction: "${instruction}"`,
+          serverUrl: `http://localhost:3030/scraped_website/`,
+          update: {
+            type: 'button-creation',
+            container: containerSelector,
+            instruction: instruction
+          }
+        };
+        
+      } catch (error) {
+        console.error(`❌ Error creating button:`, error);
+        return { 
+          success: false, 
+          message: `Error creating button: ${error.message}` 
+        };
+      }
+    }
     
     // Check if this is a specific element update or a general natural language command
     const isNaturalLanguageCommand = 
@@ -1169,284 +1601,87 @@ export const intelligentHtmlUpdate = async (file, instruction, domainName) => {
     // Continue with the existing implementation for specific element updates
     const $ = cheerio.load(content);
     
-    // Find the target element - enhanced targeting approach
-    let $targetElement;
-    let allCandidates = [];
+    // Find all buttons in the document
+    const allButtons = await findAllButtons($);
     
-    // Log what we're looking for
-    console.log(`Looking for ${targetElement.type} with text: "${targetElement.text}"`);
+    // Find the target element(s) - enhanced targeting approach
+    let targetButtons = [];
     
-    // Try different search strategies with increasing flexibility
-    // 1. First try: exact button match
-    if (targetElement.type === 'button') {
-      $targetElement = $('button').filter(function() {
-        const buttonText = $(this).text().trim();
-        return buttonText === targetElement.text.trim();
-      });
-      
-      if ($targetElement.length > 0) {
-        console.log(`Found exact button match with text: "${targetElement.text}"`);
-      }
+    // If no specific button text was provided, target all buttons
+    if (!targetElement.text || targetElement.text.trim() === '') {
+      console.log(`No specific button text provided, targeting all buttons`);
+      targetButtons = allButtons;
+    } else {
+      // Find the best matching button(s)
+      targetButtons = findBestButtonMatch(allButtons, targetElement.text);
     }
     
-    // 2. Second try: contains match for buttons
-    if (!$targetElement || $targetElement.length === 0) {
-      $targetElement = $('button').filter(function() {
-        return $(this).text().toLowerCase().includes(targetElement.text.toLowerCase());
-      });
-      
-      if ($targetElement.length > 0) {
-        console.log(`Found button containing text: "${targetElement.text}"`);
-      }
+    if (targetButtons.length === 0) {
+      console.error(`❌ No matching buttons found for: "${targetElement.text}"`);
+      return { 
+        success: false, 
+        message: `No matching buttons found for: "${targetElement.text}"` 
+      };
     }
     
-    // 3. Third try: button-like elements
-    if (!$targetElement || $targetElement.length === 0) {
-      $targetElement = $('a, div, span').filter(function() {
-        // Check if this element likely represents a button
-        const classes = $(this).attr('class') || '';
-        const hasButtonClass = classes.toLowerCase().includes('button') || 
-                               classes.toLowerCase().includes('btn');
-        const hasButtonStyles = $(this).css('cursor') === 'pointer' || 
-                               $(this).css('padding') !== undefined;
-        const isClickable = $(this).attr('onclick') !== undefined || 
-                           $(this).attr('href') !== undefined;
-        
-        // Check if the text closely matches
-        const elementText = $(this).text().trim().toLowerCase();
-        const targetText = targetElement.text.trim().toLowerCase();
-        const textMatches = elementText.includes(targetText) || 
-                           targetText.includes(elementText);
-        
-        return textMatches && (hasButtonClass || hasButtonStyles || isClickable);
-      });
-      
-      if ($targetElement.length > 0) {
-        console.log(`Found button-like element with text: "${targetElement.text}"`);
-      }
-    }
-    
-    // 4. Fourth try: generic text-containing elements
-    if (!$targetElement || $targetElement.length === 0) {
-      $targetElement = $('*').filter(function() {
-        if ($(this).is('html, body, head, script, style')) {
-          return false;
-        }
-        
-        const elementText = $(this).text().trim().toLowerCase();
-        const targetText = targetElement.text.trim().toLowerCase();
-        
-        // Only match if this element itself contains the text directly (not just its children)
-        const childrenText = $(this).children().text().trim().toLowerCase();
-        const hasTextDirectly = elementText.includes(targetText) && 
-                               (elementText.length - childrenText.length > 0);
-        
-        return hasTextDirectly;
-      });
-      
-      if ($targetElement.length > 0) {
-        console.log(`Found generic element containing text: "${targetElement.text}"`);
-      }
-    }
-    
-    // If no elements found, fall back to LLM-based approach
-    if (!$targetElement || $targetElement.length === 0) {
-      console.log(`⚠️ No exact element match found, falling back to LLM-based approach`);
-      
-      try {
-        // Use the existing LLM-based approach
-        const snippetInfo = await findHtmlSnippet(content, instruction);
-        const updatedSnippet = await updateHtmlSnippet(snippetInfo.snippet, instruction);
-        
-        // Create a regex to find the exact snippet
-        const escapedSnippet = snippetInfo.snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const snippetRegex = new RegExp(escapedSnippet, 'g');
-        
-        // Replace the snippet in the original HTML
-        const modifiedContent = content.replace(snippetRegex, updatedSnippet);
-        
-        // Check if any change was made
-        if (modifiedContent === content) {
-          console.warn("⚠️ Regex replacement didn't work, falling back to approximate line replacement");
-          
-          // Fallback approach: use the approximate line numbers
-          const lines = content.split('\n');
-          const lineStart = Math.max(0, snippetInfo.lineStart - 1); // 0-indexed
-          const lineEnd = Math.min(lines.length, snippetInfo.lineEnd);
-          
-          // Replace the relevant lines
-          const beforeLines = lines.slice(0, lineStart);
-          const afterLines = lines.slice(lineEnd);
-          
-          // Construct the new content
-          const newContent = [...beforeLines, updatedSnippet, ...afterLines].join('\n');
-          
-          // Write the modified content back to the file
-          await fs.writeFile(filePath, newContent, 'utf-8');
-        } else {
-          // Write the modified content back to the file
-          await fs.writeFile(filePath, modifiedContent, 'utf-8');
-        }
-        
-        // Restart the server
-        await restartServer(baseDir);
-        
-        return { 
-          success: true, 
-          message: `Successfully updated ${file} based on instruction: "${instruction}"`,
-          serverUrl: `http://localhost:3030/scraped_website/`,
-          update: {
-            elementType: snippetInfo.elementType,
-            identifier: snippetInfo.elementIdentifier,
-            change: snippetInfo.modificationNeeded
-          }
-        };
-      } catch (error) {
-        console.error(`❌ Error with fallback approach:`, error);
-        return { 
-          success: false, 
-          message: `Failed to find matching element for: "${instruction}"` 
-        };
-      }
-    }
-    
-    // If we found multiple matches, use the first one but log a warning
-    if ($targetElement.length > 1) {
-      console.warn(`⚠️ Found ${$targetElement.length} matching elements, using the first one`);
-      // Keep only the first match
-      $targetElement = $targetElement.first();
-    }
-    
-    console.log(`✅ Found matching element: ${$targetElement.length > 0}`);
+    console.log(`✅ Found ${targetButtons.length} matching buttons`);
     
     // Store original HTML for comparison
     const originalHtml = $.html();
-    const originalElementHtml = $.html($targetElement);
-    console.log(`Original element HTML: ${originalElementHtml.substring(0, 100)}...`);
+    let updatedContent = content;
+    let updateCount = 0;
     
-    // NEW: Use Claude to design the element change
-    let modifiedElementHtml;
-    try {
-      // Send the original element to Claude for design modification
-      modifiedElementHtml = await designElementChange(originalElementHtml, instruction);
-    } catch (claudeError) {
-      console.warn(`⚠️ Claude design failed, falling back to basic modifications: ${claudeError.message}`);
+    // Apply changes to each matched button
+    for (const button of targetButtons) {
+      console.log(`Updating button: "${button.text}"`);
       
-      // Apply the requested changes using Cheerio as fallback
-      if (targetAction.type === 'color' || targetAction.type === 'colour') {
-        if (targetAction.property === 'background-color' || targetAction.property === 'bg') {
-          $targetElement.css('background-color', targetAction.value);
-        } else {
-          $targetElement.css('color', targetAction.value);
+      const originalElementHtml = button.html;
+      
+      // Use Claude to design the element change
+      try {
+        // Send the original element to Claude for design modification
+        const modifiedElementHtml = await designElementChange(originalElementHtml, instruction);
+        
+        // Replace the button in the content
+        updatedContent = updatedContent.replace(originalElementHtml, modifiedElementHtml);
+        updateCount++;
+        
+      } catch (claudeError) {
+        console.warn(`⚠️ Claude design failed for button "${button.text}", falling back to basic modifications: ${claudeError.message}`);
+        
+        // Apply the requested changes using Cheerio as fallback
+        if (targetAction.type === 'color' || targetAction.type === 'colour') {
+          if (targetAction.property === 'background-color' || targetAction.property === 'bg') {
+            button.element.css('background-color', targetAction.value);
+          } else {
+            button.element.css('color', targetAction.value);
+          }
+        } else if (targetAction.type === 'style') {
+          button.element.css(targetAction.property, targetAction.value);
+        } else if (targetAction.type === 'text') {
+          button.element.text(targetAction.value);
+        } else if (targetAction.type === 'class') {
+          if (targetAction.operation === 'add') {
+            button.element.addClass(targetAction.value);
+          } else if (targetAction.operation === 'remove') {
+            button.element.removeClass(targetAction.value);
+          }
+        } else if (targetAction.type === 'attribute') {
+          button.element.attr(targetAction.property, targetAction.value);
         }
-      } else if (targetAction.type === 'style') {
-        $targetElement.css(targetAction.property, targetAction.value);
-      } else if (targetAction.type === 'text') {
-        $targetElement.text(targetAction.value);
-      } else if (targetAction.type === 'class') {
-        if (targetAction.operation === 'add') {
-          $targetElement.addClass(targetAction.value);
-        } else if (targetAction.operation === 'remove') {
-          $targetElement.removeClass(targetAction.value);
-        }
-      } else if (targetAction.type === 'attribute') {
-        $targetElement.attr(targetAction.property, targetAction.value);
+        
+        // Get the modified HTML and update the content
+        const modifiedElementHtml = $.html(button.element);
+        updatedContent = updatedContent.replace(originalElementHtml, modifiedElementHtml);
+        updateCount++;
       }
-      
-      // Get the modified HTML
-      modifiedElementHtml = $.html($targetElement);
     }
     
-    console.log(`Modified element HTML: ${modifiedElementHtml.substring(0, 100)}...`);
-    
-    // Improved element replacement approach
-    
-    // 1. First try direct string replacement
-    let updatedContent = content.replace(originalElementHtml, modifiedElementHtml);
-    
-    // 2. If direct replacement failed, try DOM replacement
-    if (updatedContent === content) {
-      console.log("Direct string replacement failed, trying DOM replacement");
-      
-      // Create a new DOM with the content
-      const $dom = cheerio.load(content);
-      
-      // Find the element in the new DOM
-      let $elementToReplace;
-      
-      // Try to find by similar text content
-      const targetText = targetElement.text.trim();
-      $elementToReplace = $dom(`*:contains("${targetText}")`).filter(function() {
-        // Skip html, body, etc.
-        if ($dom(this).is('html, body, head, script, style')) {
-          return false;
-        }
-        
-        // Check if text content matches
-        const text = $dom(this).text().trim();
-        return text.includes(targetText) || targetText.includes(text);
-      });
-      
-      if ($elementToReplace.length > 1) {
-        console.log(`Found ${$elementToReplace.length} potential elements to replace, narrowing down`);
-        
-        // Try to narrow down by element type
-        const tagName = $targetElement.prop('tagName').toLowerCase();
-        const narrowed = $elementToReplace.filter(function() {
-          return $dom(this).prop('tagName').toLowerCase() === tagName;
-        });
-        
-        if (narrowed.length > 0) {
-          $elementToReplace = narrowed.first();
-        } else {
-          $elementToReplace = $elementToReplace.first();
-        }
-      } else if ($elementToReplace.length === 0) {
-        console.warn("Could not find element to replace in the DOM");
-        
-        // 3. If DOM replacement failed, try using serialized HTML search
-        // Look for a unique snippet of the original element
-        const snippets = [];
-        if (originalElementHtml.length > 30) {
-          // Extract a few unique-looking snippets from the original element
-          snippets.push(originalElementHtml.substring(0, 30));
-          snippets.push(originalElementHtml.substring(Math.floor(originalElementHtml.length / 2), 
-                                               Math.floor(originalElementHtml.length / 2) + 30));
-          
-          // Try to replace each snippet
-          let replacementSucceeded = false;
-          for (const snippet of snippets) {
-            if (content.includes(snippet)) {
-              const escapedSnippet = snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const regexPattern = new RegExp(`[\\s\\S]*?(${escapedSnippet}[\\s\\S]*?)(?=<\\/${$targetElement.prop('tagName').toLowerCase()}>)`, 'i');
-              const match = content.match(regexPattern);
-              
-              if (match && match[1]) {
-                const fullMatch = match[1] + `</${$targetElement.prop('tagName').toLowerCase()}>`;
-                updatedContent = content.replace(fullMatch, modifiedElementHtml);
-                if (updatedContent !== content) {
-                  console.log("Successfully replaced element using snippet match");
-                  replacementSucceeded = true;
-                  break;
-                }
-              }
-            }
-          }
-          
-          if (!replacementSucceeded) {
-            console.error("All replacement attempts failed");
-            return {
-              success: false,
-              message: "Could not reliably update the element in the document"
-            };
-          }
-        }
-      } else {
-        // Replace the found element with the modified version
-        console.log("Replacing element in DOM");
-        $elementToReplace.replaceWith(modifiedElementHtml);
-        updatedContent = $dom.html();
-      }
+    if (updateCount === 0) {
+      return {
+        success: false,
+        message: `Could not update any buttons based on instruction: "${instruction}"`
+      };
     }
     
     // Write the updated content back to the file
@@ -1457,12 +1692,11 @@ export const intelligentHtmlUpdate = async (file, instruction, domainName) => {
     
     return { 
       success: true, 
-      message: `Successfully updated ${targetElement.type || 'element'} with text "${targetElement.text}" in ${file} using Claude design`,
+      message: `Successfully updated ${updateCount} button(s) in ${file} based on instruction: "${instruction}"`,
       serverUrl: `http://localhost:3030/scraped_website/`,
       update: {
-        elementType: targetElement.type || 'element',
-        identifier: targetElement.text,
-        change: `Claude-designed update based on: "${instruction}"`
+        buttonCount: updateCount,
+        instruction: instruction
       }
     };
     
@@ -1499,7 +1733,7 @@ async function restartServer(baseDir) {
   }
 }
 
-// Helper function to parse the instruction into target element and action
+// Enhanced parseInstruction function to better detect button creation and modification
 function parseInstruction(instruction) {
   console.log(`Parsing instruction: "${instruction}"`);
   
@@ -1515,6 +1749,16 @@ function parseInstruction(instruction) {
       property: 'color'
     }
   };
+  
+  // Check if this is a button creation request
+  const addButtonMatch = instruction.match(/(?:add|create|insert|new)\s+(?:a\s+)?(?:button|btn)(?:\s+(?:that|which|to|for)\s+(.+))?/i);
+  if (addButtonMatch) {
+    result.targetAction.type = 'create';
+    result.targetAction.value = addButtonMatch[1] || instruction;
+    result.targetElement.type = 'button';
+    result.targetElement.text = ''; // No existing button text since we're creating a new one
+    return result;
+  }
   
   // Extract button/element text
   const changedMatch = instruction.match(/changed\s+the\s+(.*?)\s+button\s+(?:colour|color)\s+to\s+(\w+)/i);
@@ -1544,6 +1788,15 @@ function parseInstruction(instruction) {
       result.targetElement.text = textMatch[1].trim();
       result.targetAction.value = textMatch[2].trim();
       result.targetAction.type = 'text';
+    }
+    
+    // Button text change (specific pattern)
+    const buttonTextMatch = instruction.match(/(?:change|update|make)\s+(?:the\s+)?(?:text\s+(?:of|on)\s+(?:the\s+)?)?(.*?)\s+button\s+(?:to\s+)?["'](.*)["']/i);
+    if (buttonTextMatch) {
+      result.targetElement.text = buttonTextMatch[1].trim();
+      result.targetAction.value = buttonTextMatch[2].trim();
+      result.targetAction.type = 'text';
+      result.targetElement.type = 'button';
     }
     
     // Redesign instruction

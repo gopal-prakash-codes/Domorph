@@ -9,14 +9,28 @@ import { systemPrompt } from "../utils/system-prompt.js";
 // Regex for parsing HTML update commands
 const UPDATE_HTML_REGEX = /@(\S+\.html)\s+changed\s+(?:the\s+)?(.+?)\s+to\s+(.+?)(?:\s|$)/i;
 
-// New regex for intelligent HTML updates
+// Enhanced regex for intelligent HTML updates with improved button command detection
 const INTELLIGENT_HTML_UPDATE_REGEX = /@(\S+\.html)\s+(.+)$/i;
+
+// New regex specifically for button creation commands
+const BUTTON_CREATION_REGEX = /@(\S+\.html)\s+(?:add|create|insert)\s+(?:a\s+)?(?:new\s+)?(?:button|btn)(?:\s+(?:that|which|to|for)\s+(.+))?/i;
 
 // Function to parse HTML update commands from messages
 function parseHtmlUpdateCommand(message) {
   if (typeof message !== 'string') return null;
   
-  // Try the specific update command first
+  // First check for button creation commands (most specific)
+  const buttonCreationMatch = message.match(BUTTON_CREATION_REGEX);
+  if (buttonCreationMatch) {
+    console.log("🆕 Detected button creation command in message");
+    return {
+      type: "intelligent",
+      file: buttonCreationMatch[1],
+      instruction: message.replace(buttonCreationMatch[1], '').trim()
+    };
+  }
+  
+  // Then try the specific update command
   const match = message.match(UPDATE_HTML_REGEX);
   if (match) {
     console.log("📝 Detected specific HTML update command in message");
@@ -32,10 +46,19 @@ function parseHtmlUpdateCommand(message) {
   const instructionMatch = message.match(INTELLIGENT_HTML_UPDATE_REGEX);
   if (instructionMatch) {
     console.log("🧠 Detected intelligent HTML update instruction");
+    
+    // Check if this is a button-related instruction
+    const instruction = message.replace(instructionMatch[1], '').trim();
+    const isButtonCommand = /\b(?:button|btn)\b/i.test(instruction);
+    
+    if (isButtonCommand) {
+      console.log("🔘 This appears to be a button-related command");
+    }
+    
     return {
       type: "intelligent",
       file: instructionMatch[1],
-      instruction: instructionMatch[2]
+      instruction: instruction
     };
   }
   
