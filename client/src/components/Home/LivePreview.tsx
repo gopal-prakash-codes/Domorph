@@ -15,7 +15,7 @@ export default function LivePreview({
   selectedFiles: any;
   setSelectedFiles: any;
 }) {
-  const clientUrl = "http://localhost:5173";
+  const clientUrl = import.meta.env.VITE_CLIENT_URL || "http://127.0.0.1:5173";
 
   const [inspecting, setInspecting] = useState(false);
   const inspectingRef = useRef(inspecting);

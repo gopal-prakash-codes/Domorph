@@ -17,6 +17,7 @@ const ScreenshotUploader = () => {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState('');
+  const [clientUrl, setClientUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set API URL on component mount, handling any spaces in the env variable
@@ -25,6 +26,10 @@ const ScreenshotUploader = () => {
     console.log('Raw API URL from env:', envApiUrl);
     // Trim any spaces that might be in the env variable
     setApiUrl(envApiUrl.trim());
+    
+    // Set client URL for generated website viewing
+    const envClientUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:5173';
+    setClientUrl(envClientUrl.trim());
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,6 +154,15 @@ const ScreenshotUploader = () => {
     return `API URL: ${apiUrl}`;
   };
 
+  // Generate the correct client-side URL for viewing the website
+  const getViewUrl = (serverUrl: string) => {
+    // Extract the domain name from the URL or use the current domain name
+    const urlPath = serverUrl.split('/').slice(3).join('/');
+    const domain = urlPath.split('/')[1] || domainName;
+    
+    return `${clientUrl}/scraped_website/${domain}/index.html`;
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6">Convert Website Screenshot to Code</h2>
@@ -233,16 +247,16 @@ const ScreenshotUploader = () => {
       )}
       
       {result && (
-        <div className={`mt-6 p-4 border rounded-md ${result.success ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-          <h3 className={`font-semibold ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-            {result.success ? 'Conversion Successful!' : 'Conversion Failed'}
+        <div className={`mt-6 p-4 border rounded-md ${result?.success ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+          <h3 className={`font-semibold ${result?.success ? 'text-green-700' : 'text-red-700'}`}>
+            {result?.success ? 'Conversion Successful!' : 'Conversion Failed'}
           </h3>
-          <p className="mt-2">{result.message}</p>
+          <p className="mt-2">{result?.message}</p>
           
-          {result.success && result.url && (
+          {result?.success && result?.url && (
             <div className="mt-4">
               <a 
-                href={result.url} 
+                href={getViewUrl(result.url!)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
