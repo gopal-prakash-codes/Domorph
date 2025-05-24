@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from "../ui/command";
-import { CheckCheck, PictureInPicture, SendHorizonal } from "lucide-react";
+import { CheckCheck, CircleAlert, PictureInPicture, SendHorizonal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TypingAnimation } from "../magicui/typing-animation";
 import { webEnhance } from "../../api/useApi";
@@ -107,7 +107,10 @@ export default function LogNPrompt({
   // const [modifiedFiles, setModifiedFiles] = useState<
   //   Array<{ name: string; path: string }>
   // >([]);
-  const [statusMessage, setStatusMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState<{message: string, icon: string}>({
+    message: domain ? "Ready for modifications" : "Scraped successfully",
+    icon: "success"
+  });
   const [displayLogs, setDisplayLogs] = useState<{
     code: string;
   }>(modifyingLogs[0]);
@@ -120,14 +123,14 @@ export default function LogNPrompt({
 
     setModifying(true);
 
-    setStatusMessage("Analyzing and modifying UI...");
+    setStatusMessage({message: "Analyzing and modifying UI...", icon: "success"});
 
     try {
       const result = await webEnhance(data.prompt, uuid(), domain);
 
       if (result.success) {
         // setModifiedFiles(result.modified_files);
-        setStatusMessage(`Successfully modified ${result.modified_files.length} files`);
+        setStatusMessage({message: `Successfully modified ${result.modified_files.length} files`, icon: "success"});
 
         // Trigger a reload of the preview iframe to show changes
         const previewIframe = document.querySelector('iframe') as HTMLIFrameElement;
@@ -135,11 +138,11 @@ export default function LogNPrompt({
           previewIframe.contentWindow.location.reload();
         }
       } else {
-        setStatusMessage(result.message);
+        setStatusMessage({message: `Please retry after some time!`, icon: "warning"});
       }
     } catch (error) {
       console.error("Error modifying UI:", error);
-      setStatusMessage("Failed to modify UI. Please try again.");
+      setStatusMessage({message: "Failed to modify UI. Please try again.", icon: "error"});
     } finally {
       setModifying(false);
     }
@@ -192,7 +195,7 @@ export default function LogNPrompt({
   }, []);
 
   return (
-    <div className="bg-base-100 rounded-lg h-11/12 w-full flex flex-col justify-between">
+    <div className="bg-base-100 rounded-lg h-11/12 max-[970px]:h-full w-full flex flex-col justify-between">
       <div className="h-8/12 flex flex-col items-center">
         <div className="w-11/12 h-full flex flex-col justify-center items-center gap-y-4 py-6">
           <div className="flex flex-col justify-center items-center h-1/6">
@@ -204,13 +207,15 @@ export default function LogNPrompt({
             ) : modifying ? (
               <h1 className="text-lg flex items-center gap-x-1">
                 <span className="loader !w-[20px] !h-[20px] after:!w-[10px] after:!h-[10px]"></span>
-                {statusMessage}
+                {statusMessage.message}
               </h1>
             ) : (
-              <h1 className="text-lg flex items-center gap-x-1">
+              <h1 className="text-lg flex items-center text-center gap-x-1">
                 {selectedElInfo?.tagName ? (
                   <PictureInPicture size={20} />
                 ) : (
+                  <>
+                  {statusMessage.icon === "success" ? (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="22"
@@ -226,13 +231,16 @@ export default function LogNPrompt({
                     <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
                     <path d="m9 12 2 2 4-4" />
                   </svg>
+                  ) : statusMessage.icon === "warning" ? (
+                    <CircleAlert className="fill-[#8f7700]" size={22} />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#BD0000" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-badge-x-icon lucide-badge-x"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+                  )}
+                  </>
                 )}
                 {selectedElInfo?.tagName
                   ? `Inspected element`
-                  : statusMessage ||
-                    (domain
-                      ? "Ready for modifications"
-                      : "Scraped successfully")}
+                  : statusMessage.message}
               </h1>
             )}
 
@@ -280,7 +288,7 @@ export default function LogNPrompt({
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.4 }}
                     key={i}
-                    className="list-none pl-10 max-[1200px]:pl-5 max-[1070px]:pl-3 max-[980px]:pl-0 flex gap-x-1 items-center text-base justify-start  px-3 py-2 rounded-lg h-10 w-2/3 mx-auto"
+                    className="list-none pl-10 max-[1200px]:pl-5 max-[970px]:pl-24 max-[760px]:pl-20 max-[610px]:pl-10 max-[430px]:pl-0 flex gap-x-1 items-center text-base justify-start  px-3 py-2 rounded-lg h-10 w-2/3 mx-auto"
                   >
                     <span>
                       <CheckCheck size={16} color="#019c2b" />
@@ -297,92 +305,105 @@ export default function LogNPrompt({
       </div>
       <div className="flex flex-col items-center h-4/12 pb-6">
         <div className="flex flex-col relative w-full h-full px-5">
-          <div className="flex flex-col items-end bg-base-100 border border-base-content/20 focus:border-base-content/80 rounded-lg h-full">
-            <div className="flex w-full h-full">
-              <textarea
-                name="prompt"
-                id="prompt"
-                ref={inputRef}
-                {...register("prompt")}
-                placeholder="Modify the website design by making the header blue and adding rounded corners to all buttons."
-                className="w-full h-full pl-5 pt-3 pr-12 outline-none resize-none "
-                disabled={modifying || loading}
-              />
-            </div>
+          {
+            loading ? (
+              <>
+                <div className="flex justify-center items-center h-full w-full shadow-xl rounded-lg relative overflow-hidden">
+                  <span className="z-50 text-base-content/70 animate-pulse text-base">Loading files...</span>
+                  <div className="absolute w-full h-full bg-[url('./assets/selectFilesBg3.svg')] blur-md"></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-end bg-base-100 border border-base-content/20 focus:border-base-content/80 rounded-lg h-full">
+                  <div className="flex w-full h-full">
+                    <textarea
+                      name="prompt"
+                      id="prompt"
+                      ref={inputRef}
+                      {...register("prompt")}
+                      placeholder="Modify the website design by making the header blue and adding rounded corners to all buttons."
+                      className="w-full h-full pl-5 pt-3 pr-12 outline-none resize-none "
+                      disabled={modifying || loading}
+                    />
+                  </div>
 
-            <button
-              type="button"
-              className={`rounded-lg cursor-pointer flex items-center gap-x-1 ${
-                modifying || loading
-                  ? "bg-gray-300 text-base-100/40 cursor-not-allowed"
-                  : "bg-base-300/50 hover:bg-base-300 w-fit"
-              } p-2 text-sm m-3`}
-              onClick={handleSubmit(sendPromptToAgent)}
-              disabled={modifying || loading}
-            >
-              {modifying ? "Processing..." : "Modify UI"}{" "}
-              <SendHorizonal size={17} />
-            </button>
+                  <button
+                    type="button"
+                    className={`rounded-lg cursor-pointer flex items-center gap-x-1 ${
+                      modifying || loading
+                        ? "bg-gray-300 text-base-100/40 cursor-not-allowed"
+                        : "bg-base-300/50 hover:bg-base-300 w-fit"
+                    } p-2 text-sm m-3`}
+                    onClick={handleSubmit(sendPromptToAgent)}
+                    disabled={modifying || loading}
+                  >
+                    {modifying ? "Processing..." : "Modify UI"}{" "}
+                    <SendHorizonal size={17} />
+                  </button>
 
-            <Popover open={openSelect} onOpenChange={setOpenSelect}>
-              <PopoverTrigger />
-              <PopoverContent
-                className="p-0 z-50 bg-base-content absolute !-top-20 !-right-30"
-                style={{
-                  width: `${popoverWidth}px`,
-                }}
-              >
-                <Command>
-                  <CommandInput placeholder="Search file..." className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No file found.</CommandEmpty>
-                    <CommandGroup>
-                      {getData.structure.map((file: any) => (
-                        <CommandItem
-                          key={file.name}
-                          value={file.name}
-                          onSelect={(selectedValue) => {
-                            const currentPrompt: string = watch("prompt");
-                            const atIndex = currentPrompt.lastIndexOf("@");
+                  <Popover open={openSelect} onOpenChange={setOpenSelect}>
+                    <PopoverTrigger />
+                    <PopoverContent
+                      className="p-0 z-50 bg-base-content absolute !-top-20 !-right-30"
+                      style={{
+                        width: `${popoverWidth}px`,
+                      }}
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search file..." className="h-9" />
+                        <CommandList>
+                          <CommandEmpty>No file found.</CommandEmpty>
+                          <CommandGroup>
+                            {getData.structure.map((file: any) => (
+                              <CommandItem
+                                key={file.name}
+                                value={file.name}
+                                onSelect={(selectedValue) => {
+                                  const currentPrompt: string = watch("prompt");
+                                  const atIndex = currentPrompt.lastIndexOf("@");
 
-                            if (atIndex !== -1) {
-                              const newPrompt =
-                                currentPrompt.slice(0, atIndex + 1) +
-                                selectedValue +
-                                " ";
+                                  if (atIndex !== -1) {
+                                    const newPrompt =
+                                      currentPrompt.slice(0, atIndex + 1) +
+                                      selectedValue +
+                                      " ";
 
-                              // Set value and make it "dirty" so RHF tracks it
-                              setValue("prompt", newPrompt, {
-                                shouldDirty: true,
-                              });
+                                    // Set value and make it "dirty" so RHF tracks it
+                                    setValue("prompt", newPrompt, {
+                                      shouldDirty: true,
+                                    });
 
-                              // Focus input after DOM updates
-                              requestAnimationFrame(() => {
-                                if (inputRef.current) {
-                                  inputRef.current.focus();
+                                    // Focus input after DOM updates
+                                    requestAnimationFrame(() => {
+                                      if (inputRef.current) {
+                                        inputRef.current.focus();
 
-                                  // Move cursor to the end
-                                  const length = newPrompt.length;
-                                  inputRef.current.setSelectionRange(
-                                    length,
-                                    length
-                                  );
-                                }
-                              });
-                            }
+                                        // Move cursor to the end
+                                        const length = newPrompt.length;
+                                        inputRef.current.setSelectionRange(
+                                          length,
+                                          length
+                                        );
+                                      }
+                                    });
+                                  }
 
-                            setOpenSelect(false);
-                          }}
-                        >
-                          {file.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+                                  setOpenSelect(false);
+                                }}
+                              >
+                                {file.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </>
+            )
+          }
         </div>
       </div>
     </div>

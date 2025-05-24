@@ -182,16 +182,16 @@ export default function LivePreview({
   return (
     <div className="flex flex-col items-center w-full h-11/12 border border-base-content/20 rounded-lg text-base-100">
       <div className="flex items-center justify-between bg-base-100 border-b border-base-content/20 text-base-content w-full px-5 py-3 rounded-t-lg">
-        <div className="flex flex-col">
+        <div className="flex flex-col max-[540px]:w-1/2 flex-wrap">
           <h1>Live Preview</h1>
-          <p className="text-sm text-base-content/30">
+          <p className="text-sm text-base-content/30 ">
             {domain
               ? `${clientUrl}/scraped_website/${domain}`
               : `${clientUrl}/scraped_website`}
           </p>
         </div>
 
-        <div className="flex items-center gap-x-5">
+        <div className="flex items-center justify-end gap-x-5 max-[540px]:w-1/2">
           {!loading && (
             <div className="flex items-center gap-x-5">
               <ToolTip content="Save">
@@ -227,6 +227,7 @@ export default function LivePreview({
           </div>
         </div>
       </div>
+
       <div className="flex flex-col items-center justify-center h-full w-full">
         {loading ? (
           <span className="loader"></span>

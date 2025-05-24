@@ -26,8 +26,9 @@ app.get('/', (req, res) => {
   res.send('Server is running properly');
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
   console.log(`  - POST /api/agent/chat - Send a message to the agent`);
 });
 
