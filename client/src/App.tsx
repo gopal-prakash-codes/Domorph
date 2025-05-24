@@ -6,6 +6,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import LogNPrompt from "./components/Home/LogNPrompt";
 import LivePreview from "./components/Home/LivePreview";
+import ScreenshotUploader from "./components/ScreenshotUploader";
 
 // Define form data interface
 interface FormData {
@@ -109,6 +110,15 @@ export function Home() {
   );
 }
 
+// Screenshot upload page component
+export function ScreenshotToCode() {
+  return (
+    <div className="container mx-auto py-8">
+      <ScreenshotUploader />
+    </div>
+  );
+}
+
 function App() {
   return (
     <div className="bg-base-300 text-base-content w-screen overflow-hidden">
@@ -116,6 +126,7 @@ function App() {
       <div className="flex flex-col h-[calc(100vh-64px)]">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/screenshot" element={<ScreenshotToCode />} />
         </Routes>
       </div>
     </div>

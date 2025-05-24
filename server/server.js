@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import searchRoutes from './routes/search.js';
 import agentRoutes from "./routes/agent-routes.js"
+import screenshotRoutes from "./routes/screenshot-routes.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -21,6 +23,7 @@ app.use(cors({
 
 app.use('/api', searchRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/screenshot', screenshotRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.send('Server is running properly');
@@ -29,6 +32,7 @@ app.get('/', (req, res) => {
 app.listen(process.env.PORT, () => {
   console.log(`Server is running on port ${process.env.PORT}`);
   console.log(`  - POST /api/agent/chat - Send a message to the agent`);
+  console.log(`  - POST /api/screenshot/convert - Convert screenshot to code`);
 });
 
 

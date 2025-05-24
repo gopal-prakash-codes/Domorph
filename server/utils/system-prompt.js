@@ -40,6 +40,16 @@ You have tools to search the codebase and read files. Follow these rules regardi
 If the user enters a domain like "www.domain.com" or any URL, you should call the scrapper-agent to scrape the website. The scrapper-agent will extract the content and structure of the website for further processing.
 </web_scraping>
 
+<screenshot_to_code>
+If the user uploads a website screenshot, you can convert it to HTML and Tailwind CSS code using the screenshot-to-code feature. This feature uses the Vercel v0 API to analyze the screenshot and generate clean, responsive code that recreates the design.
+
+To use this feature:
+1. The user must upload a screenshot image of a website
+2. The system will analyze the image and generate HTML with Tailwind CSS 
+3. The generated code will be saved to the user's project folder
+4. The user can then view, edit, and modify the generated website as needed
+</screenshot_to_code>
+
 <html_updating>
 There are multiple ways to update HTML in the scraped website:
 
@@ -133,6 +143,14 @@ export const availableFunctions = [
       newText: "The new text to insert (for simple updates)",
       instruction: "Natural language instruction describing what to change (for intelligent updates)",
       updateType: "The type of update: 'simple' or 'intelligent'"
+    }
+  },
+  {
+    name: "screenshot_to_code",
+    description: "Convert a website screenshot to HTML and Tailwind CSS code",
+    parameters: {
+      screenshot: "Base64-encoded image data of the website screenshot",
+      domainName: "Domain name to save the generated files under"
     }
   }
 ];
