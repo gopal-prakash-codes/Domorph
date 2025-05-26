@@ -4,6 +4,7 @@ import { webScraping } from '../controllers/webScraping.js';
 import { uiModifierAgent } from '../controllers/uiModifierAgent.js';
 import { downloadZip } from '../controllers/downloadZip.js';
 import { webEnhance } from '../controllers/webEnhance.js';
+import { screenshotSaver } from '../controllers/screenshotSaver.js';
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.get('/webScrape', webScraping);
 router.post('/modify-ui', uiModifierAgent);
 router.post('/webenhance', webEnhance);
 router.get('/download-zip', downloadZip);
+router.get('/screenshot-saver', screenshotSaver);
 
 export default router;
