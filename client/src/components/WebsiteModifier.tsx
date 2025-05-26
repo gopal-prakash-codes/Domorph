@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 interface ModifyResult {
@@ -7,6 +7,11 @@ interface ModifyResult {
   url?: string;
   code?: string;
   error?: string;
+}
+
+interface PageInfo {
+  name: string;
+  path: string;
 }
 
 interface WebsiteModifierProps {
@@ -21,9 +26,57 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ModifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pages, setPages] = useState<PageInfo[]>([]);
+  const [selectedPage, setSelectedPage] = useState<string>('index.html');
+  const [loadingPages, setLoadingPages] = useState(false);
+
+  // Load available pages on component mount
+  useEffect(() => {
+    if (domainName) {
+      loadAvailablePages();
+    }
+  }, [domainName]);
+
+  // Function to load available pages for this domain
+  const loadAvailablePages = async () => {
+    try {
+      setLoadingPages(true);
+      
+      // For now, we'll simulate this by checking the client URL
+      // In a real implementation, you would have an API endpoint to list files in a domain directory
+      const clientDir = `${clientUrl}/scraped_website/${domainName}`;
+      
+      // This is a placeholder. In a real implementation, you would fetch the actual list of pages
+      // from the server. For now, we'll just assume index.html exists.
+      const defaultPages: PageInfo[] = [
+        { name: 'Home', path: 'index.html' }
+      ];
+      
+      // Try to fetch the directory listing (this is just a simulation)
+      try {
+        const response = await axios.get(`${apiUrl}/api/screenshot/list-pages?domainName=${domainName}`);
+        if (response.data?.pages?.length > 0) {
+          setPages(response.data.pages);
+        } else {
+          setPages(defaultPages);
+        }
+      } catch (err) {
+        console.warn('Could not fetch page list, using default', err);
+        setPages(defaultPages);
+      }
+    } catch (err) {
+      console.error('Error loading pages:', err);
+    } finally {
+      setLoadingPages(false);
+    }
+  };
 
   const handleInstructionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInstruction(e.target.value);
+  };
+
+  const handlePageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedPage(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,13 +98,14 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
     
     try {
       const url = `${apiUrl}/api/screenshot/modify`;
-      console.log(`Sending modification request to: ${url}`);
+      console.log(`Sending modification request to: ${url} for page ${selectedPage}`);
       
       const response = await axios.post(
         url,
         {
           domainName,
-          instruction
+          instruction,
+          fileName: selectedPage
         }
       );
       
@@ -91,11 +145,11 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
 
   // Generate the correct client-side URL for viewing the website
   const getViewUrl = (serverUrl: string) => {
-    // Extract the domain name from the URL or use the current domain name
-    const urlPath = serverUrl.split('/').slice(3).join('/');
-    const domain = urlPath.split('/')[1] || domainName;
+    if (!serverUrl) return `${clientUrl}/scraped_website/${domainName}/${selectedPage}`;
     
-    return `${clientUrl}/scraped_website/${domain}/index.html`;
+    // Extract the path from the URL
+    const urlPath = serverUrl.split('/').slice(3).join('/');
+    return `${clientUrl}/${urlPath}`;
   };
 
   return (
@@ -103,6 +157,29 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
       <h3 className="text-xl font-bold mb-4">Modify Your Website</h3>
       
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="page-selector" className="block text-sm font-medium text-gray-700 mb-1">
+            Select Page to Modify
+          </label>
+          <select
+            id="page-selector"
+            value={selectedPage}
+            onChange={handlePageChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loadingPages}
+          >
+            {pages.length === 0 && <option value="index.html">Home (index.html)</option>}
+            {pages.map((page, index) => (
+              <option key={index} value={page.path}>
+                {page.name} ({page.path})
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-sm text-gray-500">
+            Choose which page of your website you want to modify
+          </p>
+        </div>
+        
         <div>
           <label htmlFor="instruction" className="block text-sm font-medium text-gray-700 mb-1">
             What would you like to change?
@@ -138,7 +215,7 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p>Applying your changes... This may take a moment.</p>
+            <p>Applying your changes to {selectedPage}... This may take a moment.</p>
           </div>
         </div>
       )}
@@ -158,8 +235,18 @@ const WebsiteModifier = ({ domainName, apiUrl, clientUrl, onModified }: WebsiteM
                 rel="noopener noreferrer"
                 className="inline-block bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-semibold transition-all"
               >
-                View Updated Website
+                View Updated Page
               </a>
+              {selectedPage !== 'index.html' && (
+                <a 
+                  href={`${clientUrl}/scraped_website/${domainName}/index.html`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-block bg-gray-200 text-gray-800 py-2 px-5 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 font-medium transition-all"
+                >
+                  View Homepage
+                </a>
+              )}
             </div>
           )}
         </div>

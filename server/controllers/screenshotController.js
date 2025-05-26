@@ -53,8 +53,8 @@ export const convertScreenshotToCode = async (req, res) => {
     
     console.log(`Processing screenshot for domain: ${domainName}`);
     
-    // Call the screenshotToCode function
-    const result = await screenshotToCode(screenshotBase64, domainName);
+    // Call the screenshotToCode function with default filename 'index.html'
+    const result = await screenshotToCode(screenshotBase64, domainName, 'index.html');
     
     if (result.success) {
       // Create URL path for client to access the generated website

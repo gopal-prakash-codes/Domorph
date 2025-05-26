@@ -13,9 +13,10 @@ const __dirname = path.dirname(__filename);
  * @param {string} domainName - Domain name of the website to modify
  * @param {string} instruction - User's natural language instruction for modifications
  * @param {string} currentCode - Current HTML code of the website
+ * @param {string} targetFileName - Name of the file to modify (default: index.html)
  * @returns {Promise<Object>} - Result of the modification with updated HTML code
  */
-export const modifyWebsite = async (domainName, instruction, currentCode) => {
+export const modifyWebsite = async (domainName, instruction, currentCode, targetFileName = 'index.html') => {
   try {
     // Verify we have the API key
     const v0ApiKey = process.env.V0_API_KEY;
@@ -23,7 +24,7 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
       throw new Error('V0_API_KEY environment variable is not set');
     }
 
-    console.log(`🔄 Modifying website for ${domainName} based on user instruction...`);
+    console.log(`🔄 Modifying website page ${targetFileName} for ${domainName} based on user instruction...`);
     
     // Create payload for the v0 API with improved system prompt
     const payload = {
@@ -38,7 +39,7 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
           content: [
             {
               type: "text",
-              text: `Here is the current HTML code for a website:\n\n${currentCode}\n\nPlease modify this code according to the following instruction: ${instruction}`
+              text: `Here is the current HTML code for a website page (${targetFileName}):\n\n${currentCode}\n\nPlease modify this code according to the following instruction: ${instruction}`
             }
           ]
         }
@@ -115,11 +116,18 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
     
     // Save the current version to version history before replacing
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const versionFilePath = path.join(versionHistoryDir, `index-${timestamp}.html`);
-    await fs.copyFile(path.join(outputDir, 'index.html'), versionFilePath);
+    const fileNameWithoutExt = targetFileName.replace(/\.html$/, '');
+    const versionFilePath = path.join(versionHistoryDir, `${fileNameWithoutExt}-${timestamp}.html`);
     
-    // Save the modified code to the index.html file
-    const outputFilePath = path.join(outputDir, 'index.html');
+    // Copy the current file to version history
+    try {
+      await fs.copyFile(path.join(outputDir, targetFileName), versionFilePath);
+    } catch (err) {
+      console.warn(`Could not create backup of ${targetFileName}: ${err.message}`);
+    }
+    
+    // Save the modified code to the target file
+    const outputFilePath = path.join(outputDir, targetFileName);
     await fs.writeFile(outputFilePath, htmlCode);
 
     console.log(`✅ Modified code saved to ${outputFilePath}`);
@@ -127,7 +135,7 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
 
     return {
       success: true,
-      message: 'Website modified successfully',
+      message: `Website page ${targetFileName} modified successfully`,
       filePath: outputFilePath,
       versionFilePath,
       htmlCode

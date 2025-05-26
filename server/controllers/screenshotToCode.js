@@ -11,9 +11,10 @@ const __dirname = path.dirname(__filename);
  * 
  * @param {string} screenshotBase64 - Base64 encoded screenshot data
  * @param {string} domainName - Domain name to save the generated files under
+ * @param {string} outputFileName - Optional output file name (defaults to index.html)
  * @returns {Promise<Object>} - Result of the conversion with HTML and CSS code
  */
-export const screenshotToCode = async (screenshotBase64, domainName) => {
+export const screenshotToCode = async (screenshotBase64, domainName, outputFileName = 'index.html') => {
   try {
     // Verify we have the API key
     const v0ApiKey = process.env.V0_API_KEY;
@@ -21,7 +22,7 @@ export const screenshotToCode = async (screenshotBase64, domainName) => {
       throw new Error('V0_API_KEY environment variable is not set');
     }
 
-    console.log('🖼️ Converting screenshot to code...');
+    console.log(`🖼️ Converting screenshot to code for ${outputFileName}...`);
     
     // Format the base64 data properly (ensure it has the correct data URI prefix)
     // The v0 API expects base64 data without the data URI prefix
@@ -98,15 +99,15 @@ export const screenshotToCode = async (screenshotBase64, domainName) => {
     const outputDir = path.join(websitesDir, domainName);
     await fs.mkdir(outputDir, { recursive: true });
 
-    // Save the generated code to a file
-    const outputFilePath = path.join(outputDir, 'index.html');
+    // Save the generated code to the specified file
+    const outputFilePath = path.join(outputDir, outputFileName);
     await fs.writeFile(outputFilePath, htmlCode);
 
     console.log(`✅ Generated code saved to ${outputFilePath}`);
 
     return {
       success: true,
-      message: 'Website code generated successfully',
+      message: `Website code generated successfully for ${outputFileName}`,
       filePath: outputFilePath,
       htmlCode
     };
