@@ -27,3 +27,6 @@ dist-ssr
 node_modules
 public/scraped_website/scraped_website.html
 public/scraped_website
+public/screenshots
+public/screenshot_website
+

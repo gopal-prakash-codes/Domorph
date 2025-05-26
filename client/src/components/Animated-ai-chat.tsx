@@ -295,7 +295,7 @@ export function AnimatedAIChat() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              Type a command or ask a question
+              No code needed. Just talk. 
             </motion.p>
           </div>
 
@@ -349,7 +349,7 @@ export function AnimatedAIChat() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="Ask zap a question..."
+                placeholder="Ask domorph a question..."
                 containerClassName="w-full"
                 className={cn(
                   "w-full px-4 py-3",
@@ -494,7 +494,7 @@ export function AnimatedAIChat() {
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-7 rounded-full bg-white/[0.05] flex items-center justify-center text-center">
-                <span className="text-xs font-medium text-white/90 mb-0.5">zap</span>
+                <span className="text-xs font-medium text-white/90 mb-0.5">domorph</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <span>Thinking</span>
