@@ -8,6 +8,7 @@ import LogNPrompt from "./components/Home/LogNPrompt";
 import LivePreview from "./components/Home/LivePreview";
 import ScreenshotUploader from "./components/ScreenshotUploader";
 import WebsiteScreenshotter from "./components/WebsiteScreenshotter";
+import Builder from "./components/Builder";
 
 // Define form data interface
 interface FormData {
@@ -136,6 +137,7 @@ function App() {
       <div className="flex flex-col min-h-[calc(100vh-64px)]">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/builder" element={<Builder />} />
           <Route path="/screenshot" element={<ScreenshotToCode />} />
           <Route path="/website-screenshots" element={<WebsiteScreenshots />} />
         </Routes>

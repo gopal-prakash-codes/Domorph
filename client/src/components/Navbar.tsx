@@ -9,7 +9,7 @@ export default function Navbar() {
   };
   
   return (
-    <nav className="bg-white shadow-md w-full p-4 h-[64px]">
+    <nav className="bg-black shadow-md w-full p-4 h-[64px]">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="text-2xl font-bold text-blue-700 hover:text-blue-800 transition-colors">
           Domorph
@@ -21,6 +21,14 @@ export default function Navbar() {
               className={`font-medium hover:text-blue-600 transition-colors ${isActive('/') ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-700'}`}
             >
               Home
+            </Link>
+          </li>
+          <li>
+            <Link 
+              to="/builder" 
+              className={`font-medium hover:text-blue-600 transition-colors ${isActive('/') ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-700'}`}
+            >
+              Builder
             </Link>
           </li>
           <li>
