@@ -245,30 +245,6 @@ export default function LivePreview({
           ></iframe>
         )}
       </div>
-
-      <div className="asbolute">
-        {/* {selectedElInfo && (
-        <div
-          id="inspector-panel"
-          style={{
-            position: 'fixed',
-            bottom: 10,
-            right: 10,
-            background: '#fff',
-            border: '1px solid #ccc',
-            padding: '10px',
-            fontSize: '14px',
-            fontFamily: 'monospace',
-            zIndex: 9999,
-          }}
-        >
-          <div><strong>Tag:</strong> {selectedElInfo.tagName}</div>
-          <div><strong>Classes:</strong> {selectedElInfo.classList.join(' ') || 'None'}</div>
-          <div><strong>Inline Styles:</strong> {selectedElInfo.inlineStyles || 'None'}</div>
-          <div><strong>Text:</strong> {selectedElInfo.innerText || 'None'}</div>
-          <div><strong>URL:</strong> {selectedElInfo.url}</div>
-        </div>)} */}
-      </div>
     </div>
   );
 }

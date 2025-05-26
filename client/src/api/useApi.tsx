@@ -19,11 +19,11 @@ interface ScrapeResult {
   domain: string;
 }
 
-interface UIModificationResult {
-  success: boolean;
-  message: string;
-  modified_files: Array<{ name: string; path: string }>;
-}
+// interface UIModificationResult {
+//   success: boolean;
+//   message: string;
+//   modified_files: Array<{ name: string; path: string }>;
+// }
 
 export const webScrape = async (
   url: string,
@@ -93,63 +93,33 @@ export const promptToLlm = async (prompt: string, domain: string, fileName: stri
   }
 };
 
-export const modifyUI = async (prompt: string, domain: string): Promise<UIModificationResult> => {
-  try {
-    const response = await apiInstance.post("/newprompttollm", { prompt, domain });
+// export const webEnhance = async (prompt: string, uuid: string, domain: string): Promise<UIModificationResult> => {
+//   try {
+//     const response = await apiInstance.post(`${import.meta.env.VITE_API_URL}/api/agent/chat?domainName=${domain}`, { message: prompt, userId: uuid });
 
-    if (response.status === 200) {
-      if (response.data.success) {
-        toast.success("UI modified successfully!");
-      } else {
-        toast.error(response.data.message);
-      }
-      return response.data;
-    } else {
-      toast.error("Failed to modify the UI!");
-      return {
-        success: false,
-        message: "Failed to modify the UI!",
-        modified_files: [],
-      };
-    }
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || "An error occurred while modifying the UI";
-    toast.error(errorMessage);
-    return {
-      success: false,
-      message: errorMessage,
-      modified_files: [],
-    };
-  }
-};
-
-export const webEnhance = async (prompt: string, uuid: string, domain: string): Promise<UIModificationResult> => {
-  try {
-    const response = await apiInstance.post(`${import.meta.env.VITE_API_URL}/api/agent/chat?domainName=${domain}`, { message: prompt, userId: uuid });
-
-    if (response.status === 200) {
-      if (response.data.success) {
-        toast.success("UI modified successfully!");
-      } else {
-        toast.error(response.data.message);
-      }
-      return response.data;
-    } else {
-      toast.error("Failed to modify the UI!");
-      return {
-        success: false,
-        message: "Failed to modify the UI!",
-        modified_files: [],
-      };
-    }
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || "An error occurred while modifying the UI";
-    toast.error(errorMessage);
-    return {
-      success: false,
-      message: errorMessage,
-      modified_files: [],
-    };
-  }
-};
+//     if (response.status === 200) {
+//       if (response.data.success) {
+//         toast.success("UI modified successfully!");
+//       } else {
+//         toast.error(response.data.message);
+//       }
+//       return response.data;
+//     } else {
+//       toast.error("Failed to modify the UI!");
+//       return {
+//         success: false,
+//         message: "Failed to modify the UI!",
+//         modified_files: [],
+//       };
+//     }
+//   } catch (error: any) {
+//     const errorMessage = error.response?.data?.message || "An error occurred while modifying the UI";
+//     toast.error(errorMessage);
+//     return {
+//       success: false,
+//       message: errorMessage,
+//       modified_files: [],
+//     };
+//   }
+// };
 

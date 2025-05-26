@@ -14,6 +14,7 @@ const model = new ChatOpenAI({
 });
 const tools = [extractElement, replaceElement];
 const llmWithTools = model.bindTools(tools);
+
 async function llmCall(state) {
   // LLM decides whether to call a tool or not
   const result = await llmWithTools.invoke([
@@ -81,8 +82,14 @@ export const newPromptToLlm = async (req, res) => {
 
     const result = await agentBuilder.invoke({ messages });
 
+    const finalMessage = result.messages.at(-1);
+    const isSuccess =
+      finalMessage?.tool_calls?.length > 0 ||
+      (typeof finalMessage?.content === "string" &&
+        finalMessage.content.includes("modifiedElement"));
+
     console.log(`Result: ${JSON.stringify(result)}`);
-    res.status(200).json({ result });
+    res.status(200).json({ result, status: isSuccess ? "success" : "failure" });
   } catch (error) {
     console.error("Error in LLM processing:", error);
     res.status(500).json({ error: "Error processing request" });

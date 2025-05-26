@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TypingAnimation } from "../magicui/typing-animation";
-import { promptToLlm, webEnhance } from "../../api/useApi";
+import { promptToLlm } from "../../api/useApi";
 import { toast } from "react-hot-toast";
 // import { v4 as uuid } from "uuid";
 import {
@@ -134,12 +134,14 @@ export default function LogNPrompt({
 
     try {
       const result = await promptToLlm(cleaned, domain, selectedFile, selectedElInfo[0].xpath);
+      console.log(`Result: ${JSON.stringify(result)}`);
+      
 
-      if (result.success) {
+      if (result.status === "success") {
         // setModifiedFiles(result.modified_files);
         setIFrameSrc(`${import.meta.env.VITE_CLIENT_URL}/scraped_website/${domain}/index.html`);
         setStatusMessage({
-          message: `Successfully modified ${result.modified_files.length} files`,
+          message: `Successfully modified!`,
           icon: "success",
         });
 
@@ -147,10 +149,7 @@ export default function LogNPrompt({
         const previewIframe = document.querySelector(
           "iframe"
         ) as HTMLIFrameElement;
-        if (previewIframe) {
-          const currentSrc = previewIframe.src.split("?")[0];
-          previewIframe.src = `${currentSrc}?t=${Date.now()}`; 
-        }
+        previewIframe.contentWindow?.location.reload();
       } else {
         setStatusMessage({
           message: `Please retry after some time!`,
@@ -167,57 +166,6 @@ export default function LogNPrompt({
       setModifying(false);
     }
   };
-  // const sendPromptToAgent = async (data: any) => {
-  //   if (!data.prompt || !domain) {
-  //     toast.error(
-  //       "Please enter a prompt and ensure a website has been scraped"
-  //     );
-  //     return;
-  //   }
-  //   const cleaned = data.prompt.replace(`@${selectedFile}`, "").trim();
-  //   console.log(cleaned);
-
-  //   setModifying(true);
-
-  //   setStatusMessage({
-  //     message: "Analyzing and modifying UI...",
-  //     icon: "success",
-  //   });
-
-  //   try {
-  //     const result = await promptToLlm(cleaned, domain, selectedFile, selectedElInfo.xpath);
-
-  //     if (result.success) {
-  //       // setModifiedFiles(result.modified_files);
-  //       setStatusMessage({
-  //         message: `Successfully modified ${result.modified_files.length} files`,
-  //         icon: "success",
-  //       });
-
-  //       // Trigger a reload of the preview iframe to show changes
-  //       const previewIframe = document.querySelector(
-  //         "iframe"
-  //       ) as HTMLIFrameElement;
-  //       if (previewIframe) {
-  //         const currentSrc = previewIframe.src.split("?")[0];
-  //         previewIframe.src = `${currentSrc}?t=${Date.now()}`; 
-  //       }
-  //     } else {
-  //       setStatusMessage({
-  //         message: `Please retry after some time!`,
-  //         icon: "warning",
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.error("Error modifying UI:", error);
-  //     setStatusMessage({
-  //       message: "Failed to modify UI. Please try again.",
-  //       icon: "error",
-  //     });
-  //   } finally {
-  //     setModifying(false);
-  //   }
-  // };
 
   useEffect(() => {
     let currentIndex = 0;
@@ -350,10 +298,13 @@ export default function LogNPrompt({
                 </AnimatePresence>
               </div>
             ) : selectedElInfo?.length > 0 ? (
-              <div className="flex flex-col w-2/3 pl-5">
-                <div className="flex flex-col bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
+              <div className="flex flex-col w-2/3 pl-5 pt-5">
+                <div className="flex flex-col gap-y-3 bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
                   <p>
                     <strong>Tag:</strong> {selectedElInfo[0].tagName}
+                  </p>
+                  <p>
+                    <strong>Text:</strong> {`${selectedElInfo[0].innerText.substring(0, 20)}...`}
                   </p>
                   <p>
                     <strong>File:</strong>
