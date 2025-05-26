@@ -73,6 +73,8 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
     }
     
     console.log(`Processing order: ${orderedFiles.map(f => f.originalname).join(', ')}`);
+    const allFileNames = orderedFiles.map(f => f.originalname).join(', ');
+    console.log(`All file names: ${allFileNames}`);
     
     for (let i = 0; i < orderedFiles.length; i++) {
       const file = orderedFiles[i];
@@ -98,7 +100,7 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
         console.log(`Creating ${outputFileName} from ${originalName}`);
         
         // Call the screenshotToCode function with the custom output file name
-        const result = await screenshotToCode(screenshotBase64, domainName, outputFileName);
+        const result = await screenshotToCode(screenshotBase64, domainName, allFileNames,outputFileName);
         
         if (result.success) {
           console.log(`Successfully generated ${outputFileName}`);
