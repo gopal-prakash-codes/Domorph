@@ -278,6 +278,7 @@ export const webScraping = async (req, res) => {
   let browser;
   try {
     const puppeteerOptions = {
+      executablePath: '/usr/bin/chromium-browser',
       headless: true,
       args: process.env.PUPPETEER_ARGS ? process.env.PUPPETEER_ARGS.split(',') : []
     };
