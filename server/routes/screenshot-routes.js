@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { convertScreenshotToCode } from '../controllers/screenshotController.js';
+import { convertScreenshotToCode, websiteScreenshots } from '../controllers/screenshotController.js';
 import { modifyWebsite } from '../controllers/modifyWebsite.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -22,6 +22,9 @@ const upload = multer({
 
 // Route to convert screenshot to code
 router.post('/convert', upload.single('screenshot'), convertScreenshotToCode);
+
+// Route to take screenshots of a website
+router.get('/website-screenshots', websiteScreenshots);
 
 // Route to modify generated website
 router.post('/modify', async (req, res) => {

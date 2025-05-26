@@ -31,6 +31,14 @@ export default function Navbar() {
               Screenshot to Code
             </Link>
           </li>
+          <li>
+            <Link 
+              to="/website-screenshots" 
+              className={`font-medium hover:text-blue-600 transition-colors ${isActive('/website-screenshots') ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-700'}`}
+            >
+              Website Screenshots
+            </Link>
+          </li>
         </ul>
       </div>
     </nav>

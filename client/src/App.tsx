@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import LogNPrompt from "./components/Home/LogNPrompt";
 import LivePreview from "./components/Home/LivePreview";
 import ScreenshotUploader from "./components/ScreenshotUploader";
+import WebsiteScreenshotter from "./components/WebsiteScreenshotter";
 
 // Define form data interface
 interface FormData {
@@ -119,6 +120,15 @@ export function ScreenshotToCode() {
   );
 }
 
+// Website Screenshot page component
+export function WebsiteScreenshots() {
+  return (
+    <div className="container mx-auto py-8 px-4 min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <WebsiteScreenshotter />
+    </div>
+  );
+}
+
 function App() {
   return (
     <div className="bg-gradient-to-b from-blue-50 to-slate-100 min-h-screen">
@@ -127,6 +137,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/screenshot" element={<ScreenshotToCode />} />
+          <Route path="/website-screenshots" element={<WebsiteScreenshots />} />
         </Routes>
       </div>
     </div>
