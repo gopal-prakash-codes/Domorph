@@ -12,9 +12,16 @@ const __dirname = path.dirname(__filename);
  * @param {Array} options.files - Array of files to process
  * @param {string} options.domainName - Domain name for the website
  * @param {Function} options.sendUpdate - Callback for sending SSE updates
+ * @param {Array} options.fileOrder - Optional array of indices to determine processing order
  */
-export const convertMultipleScreenshotsToCode = async ({ files, domainName, sendUpdate }) => {
+export const convertMultipleScreenshotsToCode = async ({ files, domainName, sendUpdate, fileOrder = [] }) => {
   try {
+    console.log(`Starting multi-page processing for domain: ${domainName}`);
+    console.log(`Files to process: ${files.length}`);
+    files.forEach((file, idx) => {
+      console.log(`File ${idx + 1}: ${file.originalname}, size: ${file.size} bytes`);
+    });
+    
     // Send initial message
     sendUpdate({
       status: 'started',
@@ -39,42 +46,62 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
     const completedFiles = [];
     const fileResults = {};
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Determine the processing order
+    let orderedFiles = [...files];
+    
+    // If fileOrder is provided and valid, use it to order the files
+    if (fileOrder && fileOrder.length === files.length) {
+      console.log("Using custom file order provided by user");
+      // Create a new array with files in the specified order
+      orderedFiles = fileOrder.map(index => files[parseInt(index, 10)]);
+    } else {
+      // Default ordering - put index file first if it exists
+      console.log("Using default file order (index.html first)");
+      const indexFile = files.find(file => {
+        const pageName = path.parse(file.originalname).name.toLowerCase();
+        return pageName === 'index';
+      });
+      
+      // Then process all non-index files
+      const nonIndexFiles = files.filter(file => {
+        const pageName = path.parse(file.originalname).name.toLowerCase();
+        return pageName !== 'index';
+      });
+      
+      // Create a combined array with index file first (if it exists)
+      orderedFiles = indexFile ? [indexFile, ...nonIndexFiles] : nonIndexFiles;
+    }
+    
+    console.log(`Processing order: ${orderedFiles.map(f => f.originalname).join(', ')}`);
+    
+    for (let i = 0; i < orderedFiles.length; i++) {
+      const file = orderedFiles[i];
       const originalName = file.originalname;
       const pageName = path.parse(originalName).name.toLowerCase();
       
-      // If this is not the first file and it's index.html, skip it (we already have one)
-      if (i > 0 && pageName === 'index') {
-        sendUpdate({
-          status: 'skipped',
-          message: `Skipped duplicate index page: ${originalName}`,
-          currentFile: originalName,
-          completedFiles,
-          totalFiles: files.length
-        });
-        continue;
-      }
+      console.log(`Processing file ${i + 1}/${orderedFiles.length}: ${originalName}`);
       
       sendUpdate({
         status: 'processing',
         message: `Processing ${originalName}...`,
         currentFile: originalName,
         completedFiles,
-        totalFiles: files.length
+        totalFiles: orderedFiles.length
       });
       
       // Convert file buffer to base64
       const screenshotBase64 = file.buffer.toString('base64');
       
       try {
-        // For non-index pages, we'll create HTML files with their respective names
+        // Create HTML file with appropriate name
         const outputFileName = pageName === 'index' ? 'index.html' : `${pageName}.html`;
+        console.log(`Creating ${outputFileName} from ${originalName}`);
         
         // Call the screenshotToCode function with the custom output file name
         const result = await screenshotToCode(screenshotBase64, domainName, outputFileName);
         
         if (result.success) {
+          console.log(`Successfully generated ${outputFileName}`);
           fileResults[originalName] = {
             success: true,
             filePath: result.filePath,
@@ -92,10 +119,11 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
             message: `${originalName} completed successfully!`,
             currentFile: originalName,
             completedFiles,
-            totalFiles: files.length,
+            totalFiles: orderedFiles.length,
             pageUrl: `/scraped_website/${domainName}/${outputFileName}`
           });
         } else {
+          console.error(`Failed to generate ${outputFileName}: ${result.message}`);
           fileResults[originalName] = {
             success: false,
             error: result.message
@@ -112,10 +140,11 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
             message: `Error processing ${originalName}: ${result.message}`,
             currentFile: originalName,
             completedFiles,
-            totalFiles: files.length
+            totalFiles: orderedFiles.length
           });
         }
       } catch (error) {
+        console.error(`Exception while processing ${originalName}: ${error.message}`);
         fileResults[originalName] = {
           success: false,
           error: error.message
@@ -132,17 +161,18 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
           message: `Error processing ${originalName}: ${error.message}`,
           currentFile: originalName,
           completedFiles,
-          totalFiles: files.length
+          totalFiles: orderedFiles.length
         });
       }
     }
     
     // Final status update
+    console.log(`All pages processed for ${domainName}. Total: ${completedFiles.length} files.`);
     sendUpdate({
       status: 'finished',
       message: 'All pages processed',
       completedFiles,
-      totalFiles: files.length,
+      totalFiles: orderedFiles.length,
       websiteUrl: `/scraped_website/${domainName}/index.html`,
       results: fileResults
     });
@@ -151,7 +181,7 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
       success: true,
       message: 'All pages processed successfully',
       completedFiles,
-      totalFiles: files.length,
+      totalFiles: orderedFiles.length,
       websiteUrl: `/scraped_website/${domainName}/index.html`,
       results: fileResults
     };
