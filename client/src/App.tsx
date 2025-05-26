@@ -113,7 +113,7 @@ export function Home() {
 // Screenshot upload page component
 export function ScreenshotToCode() {
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4 min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <ScreenshotUploader />
     </div>
   );
@@ -121,9 +121,9 @@ export function ScreenshotToCode() {
 
 function App() {
   return (
-    <div className="bg-base-300 text-base-content w-screen overflow-hidden">
+    <div className="bg-gradient-to-b from-blue-50 to-slate-100 min-h-screen">
       <Navbar />
-      <div className="flex flex-col h-[calc(100vh-64px)]">
+      <div className="flex flex-col min-h-[calc(100vh-64px)]">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/screenshot" element={<ScreenshotToCode />} />

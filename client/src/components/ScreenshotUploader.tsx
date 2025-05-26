@@ -254,12 +254,12 @@ const ScreenshotUploader = () => {
           <p className="mt-2">{result?.message}</p>
           
           {result?.success && result?.url && (
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
               <a 
                 href={getViewUrl(result.url!)} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="inline-block bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-semibold transition-all"
               >
                 View Generated Website
               </a>
@@ -276,9 +276,6 @@ const ScreenshotUploader = () => {
           <li>The generated code is saved to your project folder</li>
           <li>You can view, edit, and customize the generated website as needed</li>
         </ol>
-        <p className="mt-4 text-sm text-gray-500">
-          Powered by Vercel's v0 API for high-quality code generation from images.
-        </p>
       </div>
     </div>
   );
