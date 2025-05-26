@@ -25,13 +25,13 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
 
     console.log(`🔄 Modifying website for ${domainName} based on user instruction...`);
     
-    // Create payload for the v0 API
+    // Create payload for the v0 API with improved system prompt
     const payload = {
       model: "v0-1.0-md",
       messages: [
         {
           role: "system",
-          content: "You are an expert web developer. Your task is to modify existing HTML and Tailwind CSS code based on user instructions. Maintain the overall design consistency while implementing the requested changes. Return only the complete updated HTML file with no markdown formatting or explanations."
+          content: "You are an expert web developer. Your task is to modify existing HTML and Tailwind CSS code based on user instructions. Maintain the overall design consistency while implementing the requested changes. Return only the complete, valid HTML code with absolutely no explanations, comments about your changes, markdown formatting, or thinking process. Never include <Thinking> tags or any instructional text in your response. Do not wrap your response in code blocks or any other markdown formatting."
         },
         {
           role: "user",
@@ -78,6 +78,26 @@ export const modifyWebsite = async (domainName, instruction, currentCode) => {
     
     if (match && match[1]) {
       htmlCode = match[1];
+    }
+
+    // Remove any <Thinking> blocks or similar instruction text
+    htmlCode = htmlCode.replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, '');
+    
+    // Remove any instruction paragraphs that may have been included
+    const instructionRegex = /(I need to modify[\s\S]*?design\.)/i;
+    htmlCode = htmlCode.replace(instructionRegex, '');
+    
+    // Check if HTML starts with proper doctype or html tag
+    if (!htmlCode.trim().toLowerCase().startsWith('<!doctype') && 
+        !htmlCode.trim().toLowerCase().startsWith('<html')) {
+      // If not, it might be commentary or explanation - extract only the HTML portion
+      const htmlStartIndex = htmlCode.indexOf('<!DOCTYPE') !== -1 ? 
+                             htmlCode.indexOf('<!DOCTYPE') : 
+                             htmlCode.indexOf('<html');
+      
+      if (htmlStartIndex !== -1) {
+        htmlCode = htmlCode.substring(htmlStartIndex);
+      }
     }
 
     // Ensure the client directory exists
