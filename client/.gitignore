@@ -25,5 +25,4 @@ dist-ssr
 
 .env
 node_modules
-public/scraped_website/scraped_website.html
 public/scraped_website
