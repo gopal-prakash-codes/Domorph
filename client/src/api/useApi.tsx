@@ -77,10 +77,12 @@ export const webScrape = async (
   });
 };
 
-export const promptToLlm = async (prompt: string) => {
+export const promptToLlm = async (prompt: string, domain: string, fileName: string, xpath: string) => {
   try {
-    const response = await apiInstance.post("/prompttollm", { prompt });
+    const response = await apiInstance.post(`${import.meta.env.VITE_API_URL}/api/newprompttollm`, { prompt, domain, fileName, xpath });
     if (response.status === 200) {
+      console.log(response.data);
+      
       return response.data;
     } else {
       toast.error("Failed to modify website!");
@@ -123,7 +125,7 @@ export const modifyUI = async (prompt: string, domain: string): Promise<UIModifi
 
 export const webEnhance = async (prompt: string, uuid: string, domain: string): Promise<UIModificationResult> => {
   try {
-    const response = await apiInstance.post(`http://116.202.210.102:5001/api/agent/chat?domainName=${domain}`, { message: prompt, userId: uuid });
+    const response = await apiInstance.post(`${import.meta.env.VITE_API_URL}/api/agent/chat?domainName=${domain}`, { message: prompt, userId: uuid });
 
     if (response.status === 200) {
       if (response.data.success) {

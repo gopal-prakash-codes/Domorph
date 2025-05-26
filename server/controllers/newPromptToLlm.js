@@ -1,50 +1,31 @@
+import dotenv from "dotenv";
 import { ChatGroq } from "@langchain/groq";
-import { HumanMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
-import { elementExt } from "./Tools/elementExt.js";
+import { ChatOpenAI } from "@langchain/openai";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
-import path from "path";
-import { fileURLToPath } from "url";
-// import { LangSmithClient } from "langsmith";
+import { extractElement } from "./Tools/extractElement.js";
+import { replaceElement } from "./Tools/replaceElement.js";
+dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const scrapedDir = path.join(
-  __dirname,
-  "..",
-  "..",
-  "client",
-  "public",
-  "scraped_website"
-);
-
-
-// let langsmithClient = null;
-// if (process.env.LANGCHAIN_API_KEY) {
-//   langsmithClient = new LangSmithClient({
-//     apiKey: process.env.LANGCHAIN_API_KEY,
-//     apiUrl: process.env.LANGCHAIN_ENDPOINT || "https://api.smith.langchain.com",
-//   });
-// }
-
-const model = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: "llama-3.3-70b-versatile",
+const model = new ChatOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: "gpt-4.1",
   temperature: 0,
 });
-const llmWithTools = model.bindTools([elementExt]);
-
+const tools = [extractElement, replaceElement];
+const llmWithTools = model.bindTools(tools);
 async function llmCall(state) {
   // LLM decides whether to call a tool or not
   const result = await llmWithTools.invoke([
     {
       role: "system",
-      content: `You are a helpful assistant named Domorph. Your task is to answer the user's query accurately using the provided tools.
-            - Analyze the query to determine if any tools are required to answer it.
-            - Use the tool which you have been provided.
-            - If the query is resolved, provide a concise final answer in plain text without further tool calls.
-            - Do not call tools unnecessarily or repeat tool calls for the same step.
-          `,
+      content: `You are a helpful assistant tasked with modifying elements on a website.
+      You need to extract the element from the website using the xpath.
+      According to the prompt, you only modify that things which are mentioned in the prompt, if there is changing text, then only change the text content, not the css, if there is changing css, then only add the inline css, do not change the text content.
+      After modifying the element, you need to place the element in the html file using the modifiedElement: elemet xpath.
+      You need to return the element in a json format.
+      Do not repeat the same process again and again.
+      `,
     },
     ...state.messages,
   ]);
@@ -54,7 +35,7 @@ async function llmCall(state) {
   };
 }
 
-const toolNode = new ToolNode([elementExt]);
+const toolNode = new ToolNode(tools);
 
 // Conditional edge function to route to the tool node or end
 function shouldContinue(state) {
@@ -83,85 +64,27 @@ const agentBuilder = new StateGraph(MessagesAnnotation)
   .addEdge("tools", "llmCall")
   .compile();
 
-function getFinalAnswer(messages) {
-  let finalMessageWithContent = null;
+export const newPromptToLlm = async (req, res) => {
+  const { prompt, domain, fileName, xpath } = req.body;
 
-  for (const msg of messages) {
-    if (msg instanceof AIMessage) {
-      if (msg.content?.trim()) {
-        finalMessageWithContent = msg;
-      }
-    }
+  if (!prompt || !domain || !fileName || !xpath) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
-  return finalMessageWithContent
-    ? {
-        content: finalMessageWithContent.content,
-      }
-    : null;
-}
+  try {
+    const messages = [
+      {
+        role: "user",
+        content: `${prompt}, ${xpath}, ${fileName}, ${domain}.`,
+      },
+    ];
 
+    const result = await agentBuilder.invoke({ messages });
 
-export const newPromptToLlm = async (req, res) => {
-  const { prompt, domain } = req.body;
-  
-
-  const messages = [
-    {
-      role: "user",
-      content: prompt,
-    },
-  ];
-  const result = await agentBuilder.invoke({ messages });
-  const finalAnswer = getFinalAnswer(result.messages);
-  res.status(200).json({ result: String(finalAnswer) });
-
-
-  // Initial model call
-  // const initialResponse = await llmWithTools.invoke([
-  //   new AIMessage(
-  //     "You are a helpful assistant that can extract elements and file names from a website. Select the tool that is most relevant to the user's prompt. Give response exactly in the format of the tool's schema."
-  //   ),
-  //   new HumanMessage(prompt),
-  // ]);
-
-  // // Check if the model wants to call a tool
-  // const toolCalls = initialResponse?.kwargs?.tool_calls || [];
-
-  // if (toolCalls.length === 0) {
-  //   return res.json({ response: initialResponse });
-  // }
-
-  // // Loop over tool calls (in case of multiple)
-  // const toolResponses = await Promise.all(
-  //   toolCalls.map(async (call) => {
-  //     const { name, args, id } = call;
-
-  //     if (name === "elementExt") {
-  //       // Adjust path if needed
-  //       const filePath = path.join(scrapedDir, args.file.replace(/^@/, ""));
-  //       const result = await elementExt.func({
-  //         element: args.element,
-  //         file: filePath,
-  //       });
-  //       return new ToolMessage({ tool_call_id: id, content: result });
-  //     }
-
-  //     return new ToolMessage({
-  //       tool_call_id: call.id,
-  //       content: "Tool not implemented",
-  //     });
-  //   })
-  // );
-
-  // // Final model response using tool output
-  // const finalResponse = await llmWithTools.invoke([
-  //   new AIMessage(
-  //     "You are a helpful assistant that can extract elements and file names from a website. Select the tool that is most relevant to the user's prompt. Give response exactly in the format of the tool's schema."
-  //   ),
-  //   new HumanMessage(prompt),
-  //   ...toolResponses,
-  // ]);
-
-  // res.json({ response: finalResponse });
+    console.log(`Result: ${JSON.stringify(result)}`);
+    res.status(200).json({ result });
+  } catch (error) {
+    console.error("Error in LLM processing:", error);
+    res.status(500).json({ error: "Error processing request" });
+  }
 };

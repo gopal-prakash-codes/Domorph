@@ -1,23 +1,24 @@
 import { HardDriveDownload, Inspect } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import ToolTip from "../ToolTip";
 
 export default function LivePreview({
   loading,
   domain,
+  inspecting,
+  setInspecting,
   setSelectedElInfo,
-  setSelectedFiles,
-  selectedFiles,
+  iFrameSrc
 }: {
   loading: boolean;
   domain: string;
+  inspecting: boolean;
+  setInspecting: any;
   setSelectedElInfo: any;
-  selectedFiles: any;
-  setSelectedFiles: any;
+  iFrameSrc: string;
 }) {
   const clientUrl = import.meta.env.VITE_CLIENT_URL || "http://127.0.0.1:5173";
 
-  const [inspecting, setInspecting] = useState(false);
   const inspectingRef = useRef(inspecting);
   const injectedRef = useRef(false);
   const cleanupRef = useRef<() => void>(() => {});
@@ -107,13 +108,13 @@ export default function LivePreview({
           xpath,
         };
 
-        setSelectedFiles([
-          ...selectedFiles,
+        setSelectedElInfo([
           {
             fileName: iframeDoc.location.pathname.replace(
               /^\/scraped_website\/[^/]+\//,
               ""
             ),
+            xpath,
             tagName: target.tagName.toLowerCase(),
             innerText:
               target.innerText?.trim() || target.textContent?.trim() || "None",
@@ -163,7 +164,9 @@ export default function LivePreview({
   const handleIframeMessage = (e: MessageEvent) => {
     if (e.data?.type === 'iframe-inspect') {
       console.log("XPath of selected element:", e.data.data.xpath);
-      setSelectedElInfo(e.data.data);
+      // setSelectedElInfo(() => {
+      //   return e.data?.data ? [e.data.data] : [];
+      // });
     }
   };
 
@@ -182,16 +185,16 @@ export default function LivePreview({
   return (
     <div className="flex flex-col items-center w-full h-11/12 border border-base-content/20 rounded-lg text-base-100">
       <div className="flex items-center justify-between bg-base-100 border-b border-base-content/20 text-base-content w-full px-5 py-3 rounded-t-lg">
-        <div className="flex flex-col">
+        <div className="flex flex-col max-[540px]:w-1/2 flex-wrap">
           <h1>Live Preview</h1>
-          <p className="text-sm text-base-content/30">
+          <p className="text-sm text-base-content/30 ">
             {domain
               ? `${clientUrl}/scraped_website/${domain}`
               : `${clientUrl}/scraped_website`}
           </p>
         </div>
 
-        <div className="flex items-center gap-x-5">
+        <div className="flex items-center justify-end gap-x-5 max-[540px]:w-1/2">
           {!loading && (
             <div className="flex items-center gap-x-5">
               <ToolTip content="Save">
@@ -205,8 +208,7 @@ export default function LivePreview({
                 <button
                   id="inspect-button"
                   onClick={() => {
-                    setInspecting((prev) => !prev);
-                    setSelectedElInfo(null);
+                    setInspecting((prev: boolean) => !prev);
                   }}
                 >
                   {/* {inspecting ? 'Stop Inspecting' : 'Start Inspecting'} */}
@@ -227,12 +229,13 @@ export default function LivePreview({
           </div>
         </div>
       </div>
+
       <div className="flex flex-col items-center justify-center h-full w-full">
         {loading ? (
           <span className="loader"></span>
         ) : (
           <iframe
-            src={domain && `${clientUrl}/scraped_website/${domain}/index.html`}
+            src={domain && iFrameSrc}
             width="100%"
             height="100%"
             style={{
