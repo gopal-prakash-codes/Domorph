@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import WebsiteModifier from './WebsiteModifier';
 
 interface UploadResult {
   success: boolean;
@@ -18,6 +19,7 @@ const ScreenshotUploader = () => {
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState('');
   const [clientUrl, setClientUrl] = useState('');
+  const [showModifier, setShowModifier] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set API URL on component mount, handling any spaces in the env variable
@@ -112,7 +114,14 @@ const ScreenshotUploader = () => {
       );
       
       console.log('Response:', response.data);
+      console.log("Code: ", response.data.code);
+      
       setResult(response.data);
+      
+      // Show the modifier if generation was successful
+      if (response.data.success) {
+        setShowModifier(true);
+      }
     } catch (error) {
       console.error('Error uploading screenshot:', error);
       
@@ -143,6 +152,7 @@ const ScreenshotUploader = () => {
     setPreview(null);
     setResult(null);
     setError(null);
+    setShowModifier(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -161,6 +171,15 @@ const ScreenshotUploader = () => {
     const domain = urlPath.split('/')[1] || domainName;
     
     return `${clientUrl}/scraped_website/${domain}/index.html`;
+  };
+
+  // Handle successful modification
+  const handleModificationSuccess = (modifyResult: any) => {
+    // Update the result with the new data
+    setResult({
+      ...result!,
+      ...modifyResult
+    });
   };
 
   return (
@@ -268,6 +287,18 @@ const ScreenshotUploader = () => {
         </div>
       )}
       
+      {/* Show WebsiteModifier component if we have a successful result */}
+      {showModifier && result?.success && (
+        <div className="mt-8 border-t border-gray-200 pt-6">
+          <WebsiteModifier 
+            domainName={domainName}
+            apiUrl={apiUrl}
+            clientUrl={clientUrl}
+            onModified={handleModificationSuccess}
+          />
+        </div>
+      )}
+      
       <div className="mt-8 border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold mb-2">How It Works</h3>
         <ol className="list-decimal pl-5 space-y-2">
@@ -275,6 +306,7 @@ const ScreenshotUploader = () => {
           <li>Our AI analyzes the image and generates HTML and Tailwind CSS code</li>
           <li>The generated code is saved to your project folder</li>
           <li>You can view, edit, and customize the generated website as needed</li>
+          <li>Use natural language to request modifications to your website</li>
         </ol>
       </div>
     </div>
