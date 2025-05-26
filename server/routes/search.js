@@ -1,9 +1,7 @@
 import express from 'express';
 import { webScraping } from '../controllers/webScraping.js';
 import { newPromptToLlm } from '../controllers/newPromptToLlm.js';
-import { uiModifierAgent } from '../controllers/uiModifierAgent.js';
 import { downloadZip } from '../controllers/downloadZip.js';
-import { webEnhance } from '../controllers/webEnhance.js';
 
 const router = express.Router();
 
@@ -20,8 +18,6 @@ router.get('/test-cors', (req, res) => {
 
 router.get('/webScrape', webScraping);
 router.post('/newprompttollm', newPromptToLlm);
-router.post('/modify-ui', uiModifierAgent);
-router.post('/webenhance', webEnhance);
 router.get('/download-zip', downloadZip);
 
 export default router;
