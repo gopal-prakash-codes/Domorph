@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { webScrape } from "../../api/useApi";
+import { screenshotSaver } from "../../api/useApi";
 import { type UseFormRegister, type UseFormHandleSubmit, type FieldErrors, type SubmitHandler } from "react-hook-form";
 import { toast } from "react-hot-toast";
 
@@ -48,7 +48,7 @@ export default function SearchBar({
       setLoading(true);
       setSentQuery(true);
       try {
-        const response = await webScrape(correctedUrl, (path: string, domain: string) => {
+        const response = await screenshotSaver(correctedUrl, (path: string, domain: string) => {
           setProgress((prev) => [path, ...prev]); // Update progress in real-time
           setDomain(domain);
         });

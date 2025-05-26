@@ -11,14 +11,16 @@ puppeteer.use(StealthPlugin());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 5;
+const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT
+  ? parseInt(process.env.CONCURRENCY_LIMIT)
+  : 5;
 const limit = pLimit(CONCURRENCY_LIMIT);
 
 // 🔧 Extract domain name from URL
 const extractDomainName = (url) => {
   try {
     const hostname = new URL(url).hostname;
-    return hostname.replace(/^www\./, '');
+    return hostname.replace(/^www\./, "");
   } catch (error) {
     console.error("Error extracting domain:", error);
     return "unknown-domain";
@@ -82,15 +84,38 @@ const extractInternalLinks = async (page, baseUrl) => {
 };
 
 // 📸 Screenshot-only scraping
-async function scrapePage(browser, url, screenshotsBaseDir, visited, queue, domainName, onScreenshotSaved) {
+async function scrapePage(
+  browser,
+  url,
+  screenshotsBaseDir,
+  visited,
+  queue,
+  domainName,
+  onScreenshotSaved
+) {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl || visited.has(normalizedUrl)) return;
   visited.add(normalizedUrl);
 
   const page = await browser.newPage();
+  await page.setViewport({ width: 1920, height: 1080 });
   try {
-    await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(normalizedUrl, {
+      waitUntil: "networkidle2",
+      timeout: 30000,
+    });
     await autoScroll(page);
+
+    await page.evaluate(() => {
+      document.querySelectorAll("*").forEach((el) => {
+        const style = getComputedStyle(el);
+        if (style.position === "sticky" || style.position === "fixed") {
+          el.style.position = "absolute";
+          el.style.top = el.getBoundingClientRect().top + window.scrollY + "px";
+          el.style.left = el.getBoundingClientRect().left + window.scrollX + "px";
+        }
+      });
+    });
 
     const screenshotsDir = path.join(screenshotsBaseDir, domainName);
     await fs.mkdir(screenshotsDir, { recursive: true });
@@ -103,7 +128,9 @@ async function scrapePage(browser, url, screenshotsBaseDir, visited, queue, doma
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
     if (typeof onScreenshotSaved === "function") {
-      const relativePath = path.relative(screenshotsBaseDir, screenshotPath).replace(/\\/g, "/");
+      const relativePath = path
+        .relative(screenshotsBaseDir, screenshotPath)
+        .replace(/\\/g, "/");
       onScreenshotSaved(relativePath, domainName);
     }
 
@@ -123,7 +150,7 @@ async function scrapePage(browser, url, screenshotsBaseDir, visited, queue, doma
 }
 
 // 📡 API handler for web scraping (only screenshots)
-export const webScraping = async (req, res) => {
+export const screenshotSaver = async (req, res) => {
   const { url } = req.query || {};
   if (!url || typeof url !== "string") {
     return res.status(400).json({ message: "Invalid or missing URL." });
@@ -136,7 +163,9 @@ export const webScraping = async (req, res) => {
   res.flushHeaders();
 
   const domainName = extractDomainName(url);
-  const clientDir = process.env.CLIENT_DIR_PATH || path.join(__dirname, "..", "..", "client", "public");
+  const clientDir =
+    process.env.CLIENT_DIR_PATH ||
+    path.join(__dirname, "..", "..", "client", "public");
   const screenshotsBaseDir = path.join(clientDir, "screenshots");
   await fs.mkdir(screenshotsBaseDir, { recursive: true });
 
@@ -147,7 +176,9 @@ export const webScraping = async (req, res) => {
   try {
     const puppeteerOptions = {
       headless: true,
-      args: process.env.PUPPETEER_ARGS ? process.env.PUPPETEER_ARGS.split(",") : [],
+      args: process.env.PUPPETEER_ARGS
+        ? process.env.PUPPETEER_ARGS.split(",")
+        : [],
     };
 
     browser = await puppeteer.launch(puppeteerOptions);
@@ -161,10 +192,18 @@ export const webScraping = async (req, res) => {
       await Promise.all(
         batch.map((link) =>
           limit(() =>
-            scrapePage(browser, link, screenshotsBaseDir, visited, queue, domainName, (savedPath, domain) => {
-              sendUpdate({ type: "screenshot", path: savedPath, domain });
-              console.log("✅ Screenshot saved:", savedPath);
-            })
+            scrapePage(
+              browser,
+              link,
+              screenshotsBaseDir,
+              visited,
+              queue,
+              domainName,
+              (savedPath, domain) => {
+                sendUpdate({ type: "screenshot", path: savedPath, domain });
+                console.log("✅ Screenshot saved:", savedPath);
+              }
+            )
           )
         )
       );
@@ -179,7 +218,12 @@ export const webScraping = async (req, res) => {
     res.end();
   } catch (err) {
     console.error("Scraping failed:", err);
-    res.write(`data: ${JSON.stringify({ type: "error", message: "Scraping failed: " + err.message })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        type: "error",
+        message: "Scraping failed: " + err.message,
+      })}\n\n`
+    );
     res.end();
   } finally {
     if (browser) await browser.close();
