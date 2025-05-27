@@ -1,4 +1,4 @@
-import { Download, FileSliders, FolderSync, HardDriveDownload, History } from "lucide-react";
+import { FileSliders, FolderSync, HardDriveDownload, History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { useContext, useEffect, useState } from "react";
