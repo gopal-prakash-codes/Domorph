@@ -1,11 +1,13 @@
 import { FaHtml5 } from "react-icons/fa";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  BadgeX,
   CheckCheck,
   CircleAlert,
   PictureInPicture,
   SendHorizonal,
   StepBack,
+  WandSparkles,
 } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 import { TypingAnimation } from "../magicui/typing-animation";
@@ -75,19 +77,11 @@ const modifyingLogs = [
 ];
 
 export default function LogNPrompt() {
-  const {formData, selectedElInfo, setSelectedElInfo, inspecting, setIFrameSrc, progress, domain, getData, loading, setSentQuery} = useContext(Context);
+  const {formData, selectedElInfo, setSelectedElInfo, inspecting, setInspecting, setIFrameSrc, progress, domain, getData, loading, setSentQuery, selectedFile, setSelectedFile, statusMessage, setStatusMessage, setProgress, setDomain} = useContext(Context);
   const [modifying, setModifying] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{
-    message: string;
-    icon: string;
-  }>({
-    message: domain ? "Ready for modifications" : "Scraped successfully",
-    icon: "success",
-  });
   const [displayLogs, setDisplayLogs] = useState<{
     code: string;
   }>(modifyingLogs[0]);
-  const [selectedFile, setSelectedFile] = useState<string>("");
 
   const sendPromptToAgent = async () => {
     if (!formData?.watch("prompt") || !domain) {
@@ -99,6 +93,7 @@ export default function LogNPrompt() {
     
     const cleaned = formData?.watch("prompt").replace(`@${selectedFile}`, "").trim();
 
+    setInspecting(false);
     setModifying(true);
 
     setStatusMessage({
@@ -139,6 +134,15 @@ export default function LogNPrompt() {
       setModifying(false);
     }
   };
+  const goBack = () => {
+    setSentQuery(false);
+    setInspecting(false);
+    setModifying(false);
+    setSelectedElInfo([]);
+    setDomain("");
+    setProgress([]);
+    setSelectedFile("");
+  }
 
   useEffect(() => {
     let currentIndex = 0;
@@ -185,7 +189,7 @@ export default function LogNPrompt() {
     <div className="bg-base-100 rounded-lg h-11/12 max-[970px]:h-full w-full flex flex-col justify-between">
       <div className="h-8/12 flex flex-col items-center">
         <div className="w-11/12 h-full flex flex-col justify-center items-center gap-y-4 py-6 relative">
-        <div className="absolute top-3 -left-1 text-base flex items-center gap-x-1 overflow-hidden group cursor-pointer text-base-content/60" onClick={() => setSentQuery(false)}>
+        <div className="absolute top-3 -left-1 text-base flex items-center gap-x-1 overflow-hidden group cursor-pointer text-base-content/60" onClick={goBack}>
           <span className="z-50 bg-base-100 h-full flex items-center"><StepBack size={16}/></span>
           <span className="-translate-x-28 group-hover:translate-x-0 transition-all duration-200">New scrape</span>
         </div>
@@ -224,23 +228,10 @@ export default function LogNPrompt() {
                       </svg>
                     ) : statusMessage.icon === "warning" ? (
                       <CircleAlert className="fill-[#8f7700]" size={22} />
+                    ) : statusMessage.icon === "modify" ? (
+                      <WandSparkles className="fill-[#8f7700]" size={22} />
                     ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="22"
-                        height="22"
-                        viewBox="0 0 24 24"
-                        fill="#BD0000"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-badge-x-icon lucide-badge-x"
-                      >
-                        <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                        <line x1="15" x2="9" y1="9" y2="15" />
-                        <line x1="9" x2="15" y1="9" y2="15" />
-                      </svg>
+                      <BadgeX className="fill-[#BD0000]" size={22} />
                     )}
                   </>
                 )}
@@ -277,13 +268,13 @@ export default function LogNPrompt() {
             ) : selectedElInfo?.length > 0 ? (
               <div className="flex flex-col w-2/3 max-[440px]:w-full  pt-5">
                 <div className="flex flex-col gap-y-3 bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
-                  <p>
+                  <p className="flex max-[1060px]:flex-col">
                     <strong>Tag:</strong> {selectedElInfo[0].tagName}
                   </p>
-                  <p>
+                  <p className="flex max-[1060px]:flex-col">
                     <strong>Text:</strong> {`${selectedElInfo[0].innerText.substring(0, 20)}...`}
                   </p>
-                  <p>
+                  <p className="flex max-[1060px]:flex-col">
                     <strong>File:</strong>
                     {selectedElInfo[0].fileName}
                   </p>
@@ -361,7 +352,7 @@ export default function LogNPrompt() {
                   }}
                 >
                     <div className="flex justify-center items-center w-full h-full border rounded-lg relative">
-                      <label htmlFor="selectFile" className={`w-full h-full absolute top-0 left-0 flex items-center justify-center ${inspecting ? 'cursor-default' : 'cursor-pointer'}`}>{inspecting ? "Select any element on preview or Stop inspecting" : "Select any file to modify"}</label>
+                      <label htmlFor="selectFile" className={`w-full h-full absolute top-0 left-0 flex items-center justify-center px-3 text-center ${inspecting ? 'cursor-default' : 'cursor-pointer'}`}>{inspecting ? "Select any element on preview or Stop inspecting" : "Select any file to modify"}</label>
                       {
                         !inspecting && (
                           <SelectTrigger id="selectFile" className=" w-1/2 h-full border-0 outline-none">
