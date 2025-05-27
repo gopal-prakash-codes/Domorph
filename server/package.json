@@ -27,6 +27,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
+    "uuid": "^11.1.0",
     "zod": "^3.25.7",
     "zod-to-json-schema": "^3.24.5"
   },

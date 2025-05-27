@@ -7,6 +7,18 @@ import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, F
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 
+// Define message interface
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+// Define session interface
+interface Session {
+  sessionId: string
+  messages: Message[]
+}
+
 interface UseAutoResizeTextareaProps {
   minHeight: number
   maxHeight?: number
@@ -122,6 +134,12 @@ export function AnimatedAIChat() {
   })
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
+  
+  // Session state
+  const [session, setSession] = useState<Session | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [eventSource, setEventSource] = useState<EventSource | null>(null)
+  const [progressUpdates, setProgressUpdates] = useState<string[]>([])
 
   const commandSuggestions: CommandSuggestion[] = [
     {
@@ -227,15 +245,90 @@ export function AnimatedAIChat() {
     }
   }
 
-  const handleSendMessage = () => {
+  // Connect to SSE stream
+  const connectToEventStream = (sessionId: string) => {
+    if (eventSource) {
+      eventSource.close()
+    }
+    
+    const newEventSource = new EventSource(`http://localhost:5002/api/website/progress/${sessionId}`)
+    
+    newEventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        console.log('SSE update:', data)
+        
+        if (data.status) {
+          setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
+        }
+        
+        if (data.type === 'complete' || data.status === 'finished') {
+          newEventSource.close()
+          setEventSource(null)
+          setIsTyping(false)
+        }
+      } catch (error) {
+        console.error('Error parsing SSE data:', error)
+      }
+    }
+    
+    newEventSource.onerror = (error) => {
+      console.error('SSE connection error:', error)
+      newEventSource.close()
+      setEventSource(null)
+    }
+    
+    setEventSource(newEventSource)
+  }
+  
+  // Send message to API
+  const handleSendMessage = async () => {
     if (value.trim()) {
       startTransition(() => {
         setIsTyping(true)
-        setTimeout(() => {
-          setIsTyping(false)
+        
+        // Add user message to UI immediately
+        const userMessage: Message = { role: 'user', content: value.trim() }
+        setMessages(prev => [...prev, userMessage])
+        
+        // Send to API
+        fetch('http://localhost:5002/api/website/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: value.trim(),
+            sessionId: session?.sessionId
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('API response:', data)
+          
+          // Update session
+          setSession(data)
+          
+          // Update messages
+          setMessages(data.messages)
+          
+          // Connect to event stream for progress updates
+          if (data.sessionId) {
+            connectToEventStream(data.sessionId)
+          }
+          
+          // Reset input
           setValue("")
           adjustHeight(true)
-        }, 3000)
+        })
+        .catch(error => {
+          console.error('Error sending message:', error)
+          setIsTyping(false)
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: 'Sorry, I encountered an error processing your request.'
+          }])
+        })
       })
     }
   }
@@ -295,9 +388,39 @@ export function AnimatedAIChat() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              No code needed. Just talk. 
+              Enter a website URL or ask for help
             </motion.p>
           </div>
+          
+          {/* Messages */}
+          {messages.length > 0 && (
+            <motion.div
+              className="space-y-4 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent pr-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              {messages.map((message, index) => (
+                <motion.div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div
+                    className={`max-w-3/4 p-3 rounded-lg ${
+                      message.role === 'user'
+                        ? 'bg-white/10 text-white'
+                        : 'bg-white/5 text-white/90'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
 
           <motion.div
             className="relative backdrop-blur-2xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl"
@@ -499,6 +622,37 @@ export function AnimatedAIChat() {
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <span>Thinking</span>
                 <TypingDots />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Progress Updates */}
+      <AnimatePresence>
+        {progressUpdates.length > 0 && !isTyping && (
+          <motion.div
+            className="fixed bottom-8 right-8 max-w-xs w-full backdrop-blur-2xl bg-white/[0.02] rounded-lg p-4 shadow-lg border border-white/[0.05]"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+          >
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-white/90">Progress Updates</span>
+                <button 
+                  onClick={() => setProgressUpdates([])}
+                  className="text-white/40 hover:text-white/90 transition-colors"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="text-xs text-white/70 max-h-32 overflow-y-auto">
+                {progressUpdates.slice(-5).map((update, index) => (
+                  <div key={index} className="py-1 border-t border-white/5 first:border-0">
+                    {update}
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>

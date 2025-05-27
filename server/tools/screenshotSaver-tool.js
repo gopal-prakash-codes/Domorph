@@ -164,7 +164,6 @@ export const screenshotSaver = async (url) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
 
   const domainName = extractDomainName(url);
   const clientDir =

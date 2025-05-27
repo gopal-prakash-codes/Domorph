@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import searchRoutes from './routes/search.js';
 import agentRoutes from "./routes/agent-routes.js"
 import screenshotRoutes from "./routes/screenshot-routes.js";
+import screenshotAgentRoutes from "./routes/screenshoot-agent-route.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,13 +52,16 @@ app.use((req, res, next) => {
   next();
 });
 
+
 // Set up routes
 app.use('/api', searchRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/screenshot', screenshotRoutes);
+app.use('/api/website', screenshotAgentRoutes);
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'client', 'public')));
 app.get('/', (req, res) => {
   res.send('Server is running properly');
 });
@@ -73,6 +77,8 @@ app.listen(PORT, async () => {
   console.log(`  - GET /api/screenshot/convert-multi/progress?domainName={domain} - SSE endpoint for progress updates`);
   console.log(`  - GET /api/screenshot/website-screenshots - Take screenshots of a website`);
   console.log(`  - GET /api/screenshot/list-pages?domainName={domain} - List pages in a domain`);
+  console.log(`  - POST /api/website/chat - Send a message to the website agent`);
+  console.log(`  - GET /api/website/progress/:sessionId - SSE endpoint for website progress updates`);
   
   // Ensure directories exist after server starts
   await ensureDirectoriesExist();
