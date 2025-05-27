@@ -1,5 +1,6 @@
 import {
   BadgeX,
+  CircleAlert,
   FileSliders,
   FolderSync,
   HardDriveDownload,
@@ -23,18 +24,31 @@ export default function DialogTabs({ setOpen }: { setOpen: any }) {
   const [tabValue, setTabValue] = useState<string>("");
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState({
+    message: "",
+    icon: "",
+  });
 
   const fetchFiles = async () => {
     setLoading(true);
     try {
       const files = await getFiles();
+      setLoading(false);
+      if(files?.directories?.length === 0) {
+        setError({
+          message: "No scraped files found",
+          icon: "warning",
+        });
+        return;
+      }
       setData(files?.directories);
       setTabValue(files.directories[0]);
-      setLoading(false);
     } catch (error) {
       setLoading(false);
-      setError("Server error");
+      setError({
+        message: "Server error",
+        icon: "error",
+      });
     }
   };
 
@@ -79,9 +93,14 @@ export default function DialogTabs({ setOpen }: { setOpen: any }) {
         <div className="flex justify-center items-center h-full gap-x-2">
           <span className="loader !w-10 !h-10"></span> Fetching files...
         </div>
-      ) : error ? (
+      ) : error?.message ? (
         <div className="flex justify-center items-center h-full gap-x-2">
-          <BadgeX className="fill-[#BD0000]" size={20} /> {error}
+          {error?.icon === "warning" ? (
+            <CircleAlert className="fill-[#8f7700]" size={20} />
+          ) : (
+            <BadgeX className="fill-[#BD0000]" size={20} />
+          )}
+          {error?.message}
         </div>
       ) : (
         <Tabs
