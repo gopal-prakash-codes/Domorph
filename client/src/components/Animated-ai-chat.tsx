@@ -144,27 +144,27 @@ export function AnimatedAIChat() {
   const commandSuggestions: CommandSuggestion[] = [
     {
       icon: <ImageIcon className="w-4 h-4" />,
-      label: "Clone UI",
-      description: "Generate a UI from a screenshot",
+      label: "Clone Website",
+      description: "Clone a website from URL",
       prefix: "/clone",
     },
     {
       icon: <Figma className="w-4 h-4" />,
-      label: "Import Figma",
-      description: "Import a design from Figma",
-      prefix: "/figma",
+      label: "Example Sites",
+      description: "See example websites to clone",
+      prefix: "/examples",
     },
     {
       icon: <MonitorIcon className="w-4 h-4" />,
-      label: "Create Page",
-      description: "Generate a new web page",
-      prefix: "/page",
+      label: "Modify Site",
+      description: "Modify your cloned website",
+      prefix: "/modify",
     },
     {
       icon: <Sparkles className="w-4 h-4" />,
-      label: "Improve",
-      description: "Improve existing UI design",
-      prefix: "/improve",
+      label: "Help",
+      description: "Get help with website cloning",
+      prefix: "/help",
     },
   ]
 
@@ -232,6 +232,9 @@ export function AnimatedAIChat() {
 
           setRecentCommand(selectedCommand.label)
           setTimeout(() => setRecentCommand(null), 3500)
+          
+          // Handle command
+          handleCommandAction(selectedCommand.prefix)
         }
       } else if (e.key === "Escape") {
         e.preventDefault()
@@ -258,14 +261,59 @@ export function AnimatedAIChat() {
         const data = JSON.parse(event.data)
         console.log('SSE update:', data)
         
+        // Add eye-catching messages based on the progress status
         if (data.status) {
+          // Add to progress updates
           setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
+          
+          // Add friendly messages for different stages
+          if (data.status === 'started' || data.type === 'screenshot') {
+            const pageType = data.path ? data.path.includes('index') ? 'home page' : 'page' : 'website'
+            setMessages(prev => {
+              // Only add if the last message isn't already from assistant about screenshots
+              const lastMsg = prev[prev.length - 1]
+              if (lastMsg?.role === 'assistant' && lastMsg.content.includes('analyzing')) {
+                return prev
+              }
+              return [...prev, {
+                role: 'assistant',
+                content: `✨ I'm analyzing the design of the ${pageType}. Capturing the layout, colors, and components...`
+              }]
+            })
+          }
+          
+          if (data.status === 'processing') {
+            setMessages(prev => {
+              // Check if we already have a similar message
+              const hasProcessingMsg = prev.some(m => m.role === 'assistant' && m.content.includes('translating'))
+              if (!hasProcessingMsg) {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `🎨 Design analysis complete! Now I'm translating the visual elements into clean, responsive code. This will take just a moment...`
+                }]
+              }
+              return prev
+            })
+          }
+          
+          if (data.status === 'completed' && data.pageUrl) {
+            const pageName = data.currentFile ? data.currentFile.replace('.png', '') : 'page'
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `✅ ${pageName} has been successfully cloned! The code is optimized for performance and responsiveness.`
+            }])
+          }
         }
         
         if (data.type === 'complete' || data.status === 'finished') {
           newEventSource.close()
           setEventSource(null)
           setIsTyping(false)
+          
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `🚀 Your website is ready! I've created a pixel-perfect clone that's fully responsive. You can view it at ${data.websiteUrl || '/scraped_website'}. Feel free to ask me to make any modifications!`
+          }])
         }
       } catch (error) {
         console.error('Error parsing SSE data:', error)
@@ -290,6 +338,18 @@ export function AnimatedAIChat() {
         // Add user message to UI immediately
         const userMessage: Message = { role: 'user', content: value.trim() }
         setMessages(prev => [...prev, userMessage])
+        
+        // Check if input is a URL
+        const urlPattern = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
+        const isUrl = urlPattern.test(value.trim());
+        
+        // If it's a URL, add an immediate response
+        if (isUrl) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `I'll visit the website to see its design and then clone it for you. This might take a moment, but I'll create a pixel-perfect copy.`
+          }]);
+        }
         
         // Send to API
         fetch('http://localhost:5002/api/website/chat', {
@@ -341,14 +401,67 @@ export function AnimatedAIChat() {
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index))
   }
+  
+  // Handle command actions
+  const handleCommandAction = (command: string) => {
+    switch (command) {
+      case '/clone':
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'To clone a website, simply paste the full URL (including https://). For example: https://example.com'
+        }]);
+        break;
+      case '/examples':
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Here are some example websites you can try cloning:
+          
+* https://tailwindcss.com
+* https://stripe.com
+* https://airbnb.com
+* https://netflix.com
+* https://github.com
+
+Just paste any of these URLs to get started!`
+        }]);
+        break;
+      case '/modify':
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `After cloning a website, you can modify it with natural language instructions. Try phrases like:
+          
+* "Change the background color to blue"
+* "Make the font size larger in the header"
+* "Add a contact form to the bottom of the page"
+* "Replace the logo with a minimalist version"`
+        }]);
+        break;
+      case '/help':
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `# How to use Domorph Website Cloner
+
+1. **Clone a Website**: Paste any URL to create a pixel-perfect clone
+2. **View Your Clone**: You'll get a link to view your cloned site
+3. **Modify Your Site**: Use natural language to request changes
+4. **Download**: You can download your finished site when done
+
+Need more help? Just ask me any specific questions!`
+        }]);
+        break;
+    }
+  }
 
   const selectCommandSuggestion = (index: number) => {
     const selectedCommand = commandSuggestions[index]
     setValue(selectedCommand.prefix + " ")
     setShowCommandPalette(false)
 
-    setRecentCommand(selectedCommand.label)
-    setTimeout(() => setRecentCommand(null), 2000)
+              setRecentCommand(selectedCommand.label)
+          setTimeout(() => setRecentCommand(null), 2000)
+          
+          // Handle command suggestion actions
+          handleCommandAction(selectedCommand.prefix)
   }
 
   return (
@@ -373,7 +486,7 @@ export function AnimatedAIChat() {
               className="inline-block"
             >
               <h1 className="text-3xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/40 pb-1">
-                How can I help today?
+                Website Cloning Assistant
               </h1>
               <motion.div
                 className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
@@ -400,6 +513,31 @@ export function AnimatedAIChat() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
+              {/* Welcome message when no messages */}
+              {messages.length === 0 && (
+                <motion.div
+                  className="flex justify-center py-6"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <div className="bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 rounded-lg p-4 border border-white/5 max-w-md text-center">
+                    <div className="flex justify-center mb-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                        <MonitorIcon className="w-6 h-6 text-white/70" />
+                      </div>
+                    </div>
+                    <h3 className="text-sm font-medium text-white/90 mb-2">Welcome to Domorph Website Cloning</h3>
+                    <p className="text-xs text-white/70 mb-3">
+                      Paste any website URL to create a pixel-perfect clone in seconds. After cloning, you can modify your site with simple text instructions.
+                    </p>
+                    <div className="text-xs bg-white/5 p-2 rounded text-white/60 font-mono">
+                      https://example.com
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              
               {messages.map((message, index) => (
                 <motion.div
                   key={index}
@@ -412,10 +550,60 @@ export function AnimatedAIChat() {
                     className={`max-w-3/4 p-3 rounded-lg ${
                       message.role === 'user'
                         ? 'bg-white/10 text-white'
-                        : 'bg-white/5 text-white/90'
+                        : 'bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 text-white/90 border border-white/5'
                     }`}
                   >
+                    {message.role === 'assistant' && message.content.includes('analyzing') && (
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center">
+                          <span className="text-xs">✨</span>
+                        </span>
+                        <span className="text-xs font-medium text-violet-200/80">Analyzing Design</span>
+                      </div>
+                    )}
+                    
+                    {message.role === 'assistant' && message.content.includes('translating') && (
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                          <span className="text-xs">🎨</span>
+                        </span>
+                        <span className="text-xs font-medium text-indigo-200/80">Building Website</span>
+                      </div>
+                    )}
+                    
+                    {message.role === 'assistant' && message.content.includes('ready') && (
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <span className="text-xs">🚀</span>
+                        </span>
+                        <span className="text-xs font-medium text-emerald-200/80">Website Ready</span>
+                      </div>
+                    )}
+                    
                     <p className="text-sm">{message.content}</p>
+                    
+                    {message.role === 'assistant' && message.content.includes('website is ready') && (
+                      <motion.div 
+                        className="mt-2 pt-2 border-t border-white/10"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
+                      >
+                        <a 
+                          href={message.content.match(/at (\/scraped_website\/[^\s]+)/)?.[1] || '#'} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 bg-white/10 hover:bg-white/15 rounded-full text-white/90 transition-colors"
+                        >
+                          <span>View Website</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </a>
+                      </motion.div>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -472,7 +660,7 @@ export function AnimatedAIChat() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="Ask domorph a question..."
+                placeholder="Enter a website URL or ask for modifications..."
                 containerClassName="w-full"
                 className={cn(
                   "w-full px-4 py-3",

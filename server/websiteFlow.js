@@ -12,7 +12,7 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+const FRONTEND_URL = 'http://localhost:5173';
 // Initialize Anthropic client
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'missing-api-key',
@@ -178,7 +178,7 @@ async function handleUrlInput(state, url) {
     // Notify user
     state.messages.push({
       role: 'assistant',
-      content: `I've taken screenshots of ${url}. Now I'll convert them to code.`
+      content: `I've analyzed the full design layout, including sections, colors, and fonts of ${url}. Now I'll convert it into code.`
     });
     
     // Step 2: Convert screenshots to code
@@ -221,12 +221,11 @@ async function handleUrlInput(state, url) {
       // Store domain name in state for future interactions
       state.domainName = domainName;
     }
-    
     // Final response
     state.messages.push({
       role: 'assistant',
       content: result.success 
-        ? `I've successfully created your website! You can view it at /scraped_website/${domainName}/index.html. Feel free to tell me if you'd like to make any modifications.` 
+        ? `I've successfully created your website! You can view it at ${FRONTEND_URL}/scraped_website/${domainName}/index.html Feel free to tell me if you'd like to make any modifications.` 
         : `I encountered an error while converting screenshots to code: ${result.message}`
     });
     
@@ -269,12 +268,11 @@ async function handleModificationRequest(state, instruction) {
     );
     
     console.log('✏️ Modification result:', result.success ? 'Success' : 'Failed');
-    
     // Response to user
     state.messages.push({
       role: 'assistant',
       content: result.success 
-        ? `I've updated your website based on your instructions. You can view the updated version at /scraped_website/${domainName}/${targetFileName}. Is there anything else you'd like to change?` 
+        ? `I've updated your website based on your instructions. You can view the updated version at ${FRONTEND_URL}/scraped_website/${domainName}/${targetFileName} Is there anything else you'd like to change?` 
         : `I encountered an error while modifying the website: ${result.message}`
     });
     
