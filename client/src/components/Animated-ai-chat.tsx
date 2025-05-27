@@ -261,35 +261,50 @@ export function AnimatedAIChat() {
         const data = JSON.parse(event.data)
         console.log('SSE update:', data)
         
-        // Add eye-catching messages based on the progress status
-        if (data.status) {
-          // Add to progress updates
-          setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
-          
-          // Add friendly messages for different stages
-          if (data.status === 'started' || data.type === 'screenshot') {
-            const pageType = data.path ? data.path.includes('index') ? 'home page' : 'page' : 'website'
-            setMessages(prev => {
-              // Only add if the last message isn't already from assistant about screenshots
-              const lastMsg = prev[prev.length - 1]
-              if (lastMsg?.role === 'assistant' && lastMsg.content.includes('analyzing')) {
+                  // Add eye-catching messages based on the progress status
+          if (data.status) {
+            // Add to progress updates
+            setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
+            
+            // Add friendly messages for different stages
+            if (data.type === 'screenshot') {
+              // Extract page name from screenshot path
+              const pageName = data.path ? data.path.split('/').pop().replace('.png', '') : 'page'
+              const pageType = pageName.includes('index') ? 'home page' : pageName
+              
+              setMessages(prev => {
+                // Check if we already have a message about this specific page
+                const hasPageMsg = prev.some(m => 
+                  m.role === 'assistant' && 
+                  m.content.includes(`design and layout of ${pageType}`)
+                )
+                
+                if (!hasPageMsg) {
+                  return [...prev, {
+                    role: 'assistant',
+                    content: `✨ Design and layout of ${pageType} analyzed. I've captured all UI elements, spacing, and visual hierarchy.`
+                  }]
+                }
                 return prev
-              }
-              return [...prev, {
-                role: 'assistant',
-                content: `✨ I'm analyzing the design of the ${pageType}. Capturing the layout, colors, and components...`
-              }]
-            })
-          }
+              })
+            }
           
           if (data.status === 'processing') {
+            // Extract specific page being processed
+            const currentFile = data.currentFile || 'page'
+            const pageName = currentFile.replace('.png', '')
+            
             setMessages(prev => {
-              // Check if we already have a similar message
-              const hasProcessingMsg = prev.some(m => m.role === 'assistant' && m.content.includes('translating'))
-              if (!hasProcessingMsg) {
+              // Check if we already have a message about this specific page processing
+              const hasPageProcessingMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`Writing code for ${pageName}`)
+              )
+              
+              if (!hasPageProcessingMsg) {
                 return [...prev, {
                   role: 'assistant',
-                  content: `🎨 Design analysis complete! Now I'm translating the visual elements into clean, responsive code. This will take just a moment...`
+                  content: `🎨 Writing code for ${pageName}. Implementing responsive layout, styling components, and ensuring cross-browser compatibility...`
                 }]
               }
               return prev
@@ -298,23 +313,38 @@ export function AnimatedAIChat() {
           
           if (data.status === 'completed' && data.pageUrl) {
             const pageName = data.currentFile ? data.currentFile.replace('.png', '') : 'page'
-            setMessages(prev => [...prev, {
-              role: 'assistant',
-              content: `✅ ${pageName} has been successfully cloned! The code is optimized for performance and responsiveness.`
-            }])
+            setMessages(prev => {
+              // Check if we already have a completion message for this page
+              const hasCompletionMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`${pageName} has been successfully created`)
+              )
+              
+              if (!hasCompletionMsg) {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `✅ ${pageName} has been successfully created! Code optimized with clean HTML and Tailwind CSS for performance and responsiveness.`
+                }]
+              }
+              return prev
+            })
           }
         }
         
-        if (data.type === 'complete' || data.status === 'finished') {
-          newEventSource.close()
-          setEventSource(null)
-          setIsTyping(false)
-          
-          setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: `🚀 Your website is ready! I've created a pixel-perfect clone that's fully responsive. You can view it at ${data.websiteUrl || '/scraped_website'}. Feel free to ask me to make any modifications!`
-          }])
-        }
+                  if (data.type === 'complete' || data.status === 'finished') {
+            newEventSource.close()
+            setEventSource(null)
+            setIsTyping(false)
+            
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `🚀 Your website is now ready! I've successfully cloned the entire site with all pages and functionality. The code is clean, responsive, and follows best practices.
+
+You can view your new website here: ${data.websiteUrl || '/scraped_website'} 
+
+Want to customize it? Just tell me what changes you'd like to make.`
+            }])
+          }
       } catch (error) {
         console.error('Error parsing SSE data:', error)
       }
@@ -348,6 +378,12 @@ export function AnimatedAIChat() {
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: `I'll visit the website to see its design and then clone it for you. This might take a moment, but I'll create a pixel-perfect copy.`
+          }]);
+        } else if (session?.sessionId) {
+          // If it's a natural language modification request
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `I'm thinking about how to implement your changes...`
           }]);
         }
         
@@ -753,10 +789,11 @@ Need more help? Just ask me any specific questions!`
                   "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                   "flex items-center gap-2",
                   value.trim() ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10" : "bg-white/[0.05] text-white/40",
+                  isTyping ? "opacity-50 cursor-not-allowed" : "",
                 )}
               >
                 {isTyping ? (
-                  <LoaderIcon className="w-4 h-4 animate-[spin_2s_linear_infinite]" />
+                  <SendIcon className="w-4 h-4" />
                 ) : (
                   <SendIcon className="w-4 h-4" />
                 )}
@@ -798,16 +835,16 @@ Need more help? Just ask me any specific questions!`
       <AnimatePresence>
         {isTyping && (
           <motion.div
-            className="fixed bottom-8 left-1/2 mx-auto transform -translate-x-1/2 backdrop-blur-2xl bg-white/[0.02] rounded-full px-4 py-2 shadow-lg border border-white/[0.05]"
+            className="fixed bottom-8 left-1/2 mx-auto transform -translate-x-1/2 backdrop-blur-2xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 rounded-full px-4 py-2 shadow-lg border border-white/[0.05]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-7 rounded-full bg-white/[0.05] flex items-center justify-center text-center">
+              <div className="w-8 h-7 rounded-full bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center text-center">
                 <span className="text-xs font-medium text-white/90 mb-0.5">domorph</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-white/70">
+              <div className="flex items-center gap-2 text-sm text-white/90">
                 <span>Thinking</span>
                 <TypingDots />
               </div>
@@ -872,11 +909,16 @@ function TypingDots() {
       {[1, 2, 3].map((dot) => (
         <motion.div
           key={dot}
-          className="w-1.5 h-1.5 bg-white/90 rounded-full mx-0.5"
+          className="w-1.5 h-1.5 rounded-full mx-0.5"
           initial={{ opacity: 0.3 }}
           animate={{
             opacity: [0.3, 0.9, 0.3],
             scale: [0.85, 1.1, 0.85],
+            backgroundColor: [
+              "rgba(255, 255, 255, 0.7)",
+              "rgba(167, 139, 250, 0.9)",
+              "rgba(255, 255, 255, 0.7)"
+            ]
           }}
           transition={{
             duration: 1.2,
@@ -885,7 +927,7 @@ function TypingDots() {
             ease: "easeInOut",
           }}
           style={{
-            boxShadow: "0 0 4px rgba(255, 255, 255, 0.3)",
+            boxShadow: "0 0 6px rgba(167, 139, 250, 0.5)",
           }}
         />
       ))}
