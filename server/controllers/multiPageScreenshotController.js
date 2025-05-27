@@ -100,7 +100,7 @@ export const convertMultipleScreenshotsToCode = async ({ files, domainName, send
         console.log(`Creating ${outputFileName} from ${originalName}`);
         
         // Call the screenshotToCode function with the custom output file name
-        const result = await screenshotToCode(screenshotBase64, domainName, allFileNames,outputFileName);
+        const result = await screenshotToCode(screenshotBase64, domainName, allFileNames, outputFileName, sendUpdate);
         
         if (result.success) {
           console.log(`Successfully generated ${outputFileName}`);

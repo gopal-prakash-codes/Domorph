@@ -261,33 +261,93 @@ export function AnimatedAIChat() {
         const data = JSON.parse(event.data)
         console.log('SSE update:', data)
         
-                  // Add eye-catching messages based on the progress status
-          if (data.status) {
-            // Add to progress updates
-            setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
+        // Add to progress updates
+        if (data.status) {
+          setProgressUpdates(prev => [...prev, `${data.status}: ${data.message || ''}`])
+          
+          // Add friendly messages for different stages
+          if (data.type === 'screenshot') {
+            // Extract page name from screenshot path
+            const pageName = data.path ? data.path.split('/').pop().replace('.png', '') : 'page'
+            const pageType = pageName.includes('index') ? 'home page' : pageName
             
-            // Add friendly messages for different stages
-            if (data.type === 'screenshot') {
-              // Extract page name from screenshot path
-              const pageName = data.path ? data.path.split('/').pop().replace('.png', '') : 'page'
-              const pageType = pageName.includes('index') ? 'home page' : pageName
+            setMessages(prev => {
+              // Check if we already have a message about this specific page
+              const hasPageMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`design and layout of ${pageType}`)
+              )
               
-              setMessages(prev => {
-                // Check if we already have a message about this specific page
-                const hasPageMsg = prev.some(m => 
-                  m.role === 'assistant' && 
-                  m.content.includes(`design and layout of ${pageType}`)
-                )
-                
-                if (!hasPageMsg) {
-                  return [...prev, {
-                    role: 'assistant',
-                    content: `✨ Design and layout of ${pageType} analyzed. I've captured all UI elements, spacing, and visual hierarchy.`
-                  }]
-                }
-                return prev
-              })
-            }
+              if (!hasPageMsg) {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `✨ Design and layout of ${pageType} analyzed. I've captured all UI elements, spacing, and visual hierarchy.`
+                }]
+              }
+              return prev
+            })
+          }
+          
+          // Enhanced progress updates for code generation stages
+          if (data.status === 'analyzing') {
+            const pageName = data.pageName || (data.currentFile ? data.currentFile.replace('.png', '') : 'page')
+            
+            setMessages(prev => {
+              // Check if we already have an analyzing message for this page
+              const hasMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`analyzing the design of ${pageName}`)
+              )
+              
+              if (!hasMsg) {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `✨ I'm analyzing the design of ${pageName}. Identifying layout structure, components, colors, and typography...`
+                }]
+              }
+              return prev
+            })
+          }
+          
+          if (data.status === 'translating') {
+            const pageName = data.pageName || (data.currentFile ? data.currentFile.replace('.png', '') : 'page')
+            
+            setMessages(prev => {
+              // Check if we already have a translating message for this page
+              const hasMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`translating the design of ${pageName}`)
+              )
+              
+              if (!hasMsg) {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `🎨 Translating the design of ${pageName} into code. Crafting responsive components with clean HTML and Tailwind CSS...`
+                }]
+              }
+              return prev
+            })
+          }
+          
+          if (data.status === 'building' || data.status === 'optimizing') {
+            const pageName = data.pageName || (data.currentFile ? data.currentFile.replace('.png', '') : 'page')
+            
+            setMessages(prev => {
+              // Check if we already have a building message for this page
+              const hasMsg = prev.some(m => 
+                m.role === 'assistant' && 
+                m.content.includes(`building ${pageName}`)
+              )
+              
+              if (!hasMsg && data.status === 'building') {
+                return [...prev, {
+                  role: 'assistant',
+                  content: `⚙️ Building ${pageName} with responsive layouts. Implementing navigation, content sections, and interactive elements...`
+                }]
+              }
+              return prev
+            })
+          }
           
           if (data.status === 'processing') {
             // Extract specific page being processed
@@ -312,7 +372,7 @@ export function AnimatedAIChat() {
           }
           
           if (data.status === 'completed' && data.pageUrl) {
-            const pageName = data.currentFile ? data.currentFile.replace('.png', '') : 'page'
+            const pageName = data.pageName || (data.currentFile ? data.currentFile.replace('.png', '') : 'page')
             setMessages(prev => {
               // Check if we already have a completion message for this page
               const hasCompletionMsg = prev.some(m => 
@@ -331,20 +391,20 @@ export function AnimatedAIChat() {
           }
         }
         
-                  if (data.type === 'complete' || data.status === 'finished') {
-            newEventSource.close()
-            setEventSource(null)
-            setIsTyping(false)
-            
-            setMessages(prev => [...prev, {
-              role: 'assistant',
-              content: `🚀 Your website is now ready! I've successfully cloned the entire site with all pages and functionality. The code is clean, responsive, and follows best practices.
+        if (data.type === 'complete' || data.status === 'finished') {
+          newEventSource.close()
+          setEventSource(null)
+          setIsTyping(false)
+          
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `🚀 Your website is now ready! I've successfully cloned the entire site with all pages and functionality. The code is clean, responsive, and follows best practices.
 
 You can view your new website here: ${data.websiteUrl || '/scraped_website'} 
 
 Want to customize it? Just tell me what changes you'd like to make.`
-            }])
-          }
+          }])
+        }
       } catch (error) {
         console.error('Error parsing SSE data:', error)
       }

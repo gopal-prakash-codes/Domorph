@@ -34,7 +34,13 @@ router.post('/convert', upload.single('screenshot'), async (req, res) => {
     // Get custom domain name if provided
     const domainName = req.query.domainName || 'default';
     
-    const result = await screenshotToCode(screenshotBase64, domainName);
+    // Create simple sendUpdate function that logs progress
+    const sendUpdate = (data) => {
+      console.log(`Progress update: ${data.status} - ${data.message}`);
+      // In a production setup, you might want to emit these events via SSE
+    };
+    
+    const result = await screenshotToCode(screenshotBase64, domainName, 'index.html', 'index.html', sendUpdate);
     
     res.json(result);
   } catch (error) {

@@ -53,8 +53,14 @@ export const convertScreenshotToCode = async (req, res) => {
     
     console.log(`Processing screenshot for domain: ${domainName}`);
     
+    // Create sendUpdate function for progress messages
+    const sendUpdate = (data) => {
+      console.log(`Progress update: ${data.status} - ${data.message}`);
+      // In a real SSE setup, you would emit these events to connected clients
+    };
+    
     // Call the screenshotToCode function with default filename 'index.html'
-    const result = await screenshotToCode(screenshotBase64, domainName, 'index.html');
+    const result = await screenshotToCode(screenshotBase64, domainName, 'index.html', 'index.html', sendUpdate);
     
     if (result.success) {
       // Create URL path for client to access the generated website

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-export const screenshotToCode = async (screenshotBase64, domainName, allFileNames,outputFileName = 'index.html') => {
+export const screenshotToCode = async (screenshotBase64, domainName, allFileNames, outputFileName = 'index.html', sendUpdate) => {
   try {
     // Verify we have the API key
     const v0ApiKey = process.env.V0_API_KEY;
@@ -13,7 +13,22 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
       throw new Error('V0_API_KEY environment variable is not set');
     }
 
-    console.log(`🖼️ Converting screenshot to code for ${outputFileName}...`);
+    // Function to send progress updates if sendUpdate is provided
+    const emitProgress = (status, message, additionalData = {}) => {
+      if (typeof sendUpdate === 'function') {
+        sendUpdate({
+          status,
+          message,
+          currentFile: outputFileName,
+          pageName: path.parse(outputFileName).name,
+          timestamp: new Date().toISOString(),
+          ...additionalData
+        });
+      }
+      console.log(`${status}: ${message}`);
+    };
+
+    emitProgress('analyzing', `Starting to analyze the design of ${outputFileName}`);
     
     // Clean up file names to extract page names
     const availablePages = allFileNames
@@ -26,7 +41,7 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
         return pageName;
       });
     
-    console.log("Available pages for navigation:", availablePages);
+    emitProgress('analyzing', `Identifying navigation structure with pages: ${availablePages.join(', ')}`);
     
     // Format the base64 data properly (ensure it has the correct data URI prefix)
     // The v0 API expects base64 data without the data URI prefix
@@ -67,7 +82,7 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
       ]
     };
 
-    console.log('📦 Sending request to v0 API...');
+    emitProgress('processing', `Identifying layout patterns, color schemes, and typography in ${path.parse(outputFileName).name} page`);
     
     // Call the v0 API
     const response = await fetch('https://api.v0.dev/v1/chat/completions', {
@@ -82,14 +97,19 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ API Error Response:', errorText);
+      emitProgress('error', `API request failed with status ${response.status}: ${errorText}`);
       throw new Error(`API request failed with status ${response.status}: ${errorText}`);
     }
 
+    emitProgress('translating', `Designing component structure and responsive layout for ${path.parse(outputFileName).name} page`);
+    
     const data = await response.json();
     console.log('✅ Received response from v0 API');
     
     // Extract the HTML code from the response
     const content = data.choices[0].message.content;
+    
+    emitProgress('building', `Writing HTML and Tailwind CSS for responsive design on all screen sizes`);
     
     // Extract the HTML code (it might be wrapped in a code block)
     let htmlCode = content;
@@ -113,11 +133,16 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
     const outputDir = path.join(websitesDir, domainName);
     await fs.mkdir(outputDir, { recursive: true });
 
+    emitProgress('optimizing', `Optimizing code for performance and cross-browser compatibility`);
+
     // Save the generated code to the specified file
     const outputFilePath = path.join(outputDir, outputFileName);
     await fs.writeFile(outputFilePath, htmlCode);
 
-    console.log(`✅ Generated code saved to ${outputFilePath}`);
+    emitProgress('completed', `Page ${path.parse(outputFileName).name} has been successfully created`, { 
+      pageUrl: `/scraped_website/${domainName}/${outputFileName}`,
+      path: outputFilePath 
+    });
 
     return {
       success: true,
@@ -127,6 +152,13 @@ export const screenshotToCode = async (screenshotBase64, domainName, allFileName
     };
   } catch (error) {
     console.error('❌ Error converting screenshot to code:', error);
+    if (typeof sendUpdate === 'function') {
+      sendUpdate({
+        status: 'error',
+        message: `Error converting screenshot to code: ${error.message}`,
+        error: error.toString()
+      });
+    }
     return {
       success: false,
       message: `Error converting screenshot to code: ${error.message}`,

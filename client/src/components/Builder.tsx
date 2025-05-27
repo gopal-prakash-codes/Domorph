@@ -1,5 +1,6 @@
 import React from 'react'
-import { AnimatedAIChat } from './animated-ai-chat'
+import { AnimatedAIChat } from './Animated-ai-chat'
+
 
 function Builder() {
   return (

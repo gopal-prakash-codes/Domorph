@@ -12,7 +12,7 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const FRONTEND_URL = 'http://localhost:5173';
+const FRONTEND_URL = process.env.CLIENT_URL;
 // Initialize Anthropic client
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'missing-api-key',
