@@ -1,6 +1,6 @@
 import { ChatGroq } from "@langchain/groq";
 import { HumanMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
-import { elementExt } from "./Tools/elementExt.js";
+// import { elementExt } from "./Tools/elementExt.js";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
 import path from "path";
@@ -32,7 +32,7 @@ const model = new ChatGroq({
   model: "llama-3.3-70b-versatile",
   temperature: 0,
 });
-const llmWithTools = model.bindTools([elementExt]);
+// const llmWithTools = model.bindTools([elementExt]);
 
 async function llmCall(state) {
   // LLM decides whether to call a tool or not
@@ -54,7 +54,7 @@ async function llmCall(state) {
   };
 }
 
-const toolNode = new ToolNode([elementExt]);
+// const toolNode = new ToolNode([elementExt]);
 
 // Conditional edge function to route to the tool node or end
 function shouldContinue(state) {
