@@ -1,40 +1,17 @@
 import { HardDriveDownload, Inspect } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import ToolTip from "../ToolTip";
+import { Context } from "../../context/statesContext";
 
-export default function LivePreview({
-  loading,
-  domain,
-  inspecting,
-  setInspecting,
-  setSelectedElInfo,
-  iFrameSrc
-}: {
-  loading: boolean;
-  domain: string;
-  inspecting: boolean;
-  setInspecting: any;
-  setSelectedElInfo: any;
-  iFrameSrc: string;
-}) {
+export default function LivePreview() {
+  const {loading, domain,inspecting, setInspecting, setSelectedElInfo, iFrameSrc, handleDownload} = useContext(Context);
+  
+  
   const clientUrl = import.meta.env.VITE_CLIENT_URL || "http://127.0.0.1:5173";
 
   const inspectingRef = useRef(inspecting);
   const injectedRef = useRef(false);
   const cleanupRef = useRef<() => void>(() => {});
-
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = `${
-      import.meta.env.VITE_API_URL
-    }/api/download-zip?domain=${domain}`;
-    console.log(link.href);
-
-    link.setAttribute("download", `${domain}.zip`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
 
   function getXPath(element: HTMLElement): string {
     if (element.id) {
@@ -198,7 +175,7 @@ export default function LivePreview({
           {!loading && (
             <div className="flex items-center gap-x-5">
               <ToolTip content="Save">
-                <button type="button" onClick={handleDownload}>
+                <button type="button" onClick={() => handleDownload(domain)}>
                   <HardDriveDownload size={20} className="cursor-pointer" />
                 </button>
               </ToolTip>
@@ -235,7 +212,7 @@ export default function LivePreview({
           <span className="loader"></span>
         ) : (
           <iframe
-            src={domain && iFrameSrc}
+            src={(domain && iFrameSrc) || `${import.meta.env.VITE_CLIENT_URL}/scraped_website/`}
             width="100%"
             height="100%"
             style={{

@@ -81,8 +81,6 @@ export const promptToLlm = async (prompt: string, domain: string, fileName: stri
   try {
     const response = await apiInstance.post(`${import.meta.env.VITE_API_URL}/api/newprompttollm`, { prompt, domain, fileName, xpath });
     if (response.status === 200) {
-      console.log(response.data);
-      
       return response.data;
     } else {
       toast.error("Failed to modify website!");
@@ -123,3 +121,11 @@ export const promptToLlm = async (prompt: string, domain: string, fileName: stri
 //   }
 // };
 
+export const getFiles = async () => {
+  try {
+    const response = await apiInstance.get(`${import.meta.env.VITE_API_URL}/api/get-files`);
+    return response.data;
+  } catch (error: any) {
+    toast.error(error.response.data.message);
+  }
+}

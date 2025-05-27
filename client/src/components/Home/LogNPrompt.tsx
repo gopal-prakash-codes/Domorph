@@ -5,12 +5,12 @@ import {
   CircleAlert,
   PictureInPicture,
   SendHorizonal,
+  StepBack,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { TypingAnimation } from "../magicui/typing-animation";
 import { promptToLlm } from "../../api/useApi";
 import { toast } from "react-hot-toast";
-// import { v4 as uuid } from "uuid";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Context } from "../../context/statesContext";
 
 const modifyingLogs = [
   {
@@ -73,34 +74,8 @@ const modifyingLogs = [
   },
 ];
 
-export default function LogNPrompt({
-  loading,
-  register,
-  handleSubmit,
-  watch,
-  setValue,
-  getData,
-  progress,
-  domain,
-  selectedElInfo,
-  setSelectedElInfo,
-  inspecting,
-  setIFrameSrc,
-}: {
-  loading: any;
-  register: any;
-  handleSubmit: any;
-  watch: any;
-  setValue: any;
-  getData: any;
-  progress: string[];
-  domain: string;
-  selectedElInfo: any;
-  setSelectedElInfo: any;
-  inspecting: boolean;
-  setIFrameSrc: any;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
+export default function LogNPrompt() {
+  const {formData, selectedElInfo, setSelectedElInfo, inspecting, setIFrameSrc, progress, domain, getData, loading, setSentQuery} = useContext(Context);
   const [modifying, setModifying] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     message: string;
@@ -123,7 +98,6 @@ export default function LogNPrompt({
     }
     
     const cleaned = data.prompt.replace(`@${selectedFile}`, "").trim();
-    console.log(cleaned);
 
     setModifying(true);
 
@@ -134,7 +108,6 @@ export default function LogNPrompt({
 
     try {
       const result = await promptToLlm(cleaned, domain, selectedFile, selectedElInfo[0].xpath);
-      console.log(`Result: ${JSON.stringify(result)}`);
       
 
       if (result.status === "success") {
@@ -190,16 +163,16 @@ export default function LogNPrompt({
   }, [modifying]);
 
   useEffect(() => {
-    setValue("prompt", `@${selectedFile}` + " ");
+    formData?.setValue("prompt", `@${selectedFile}` + " ");
   }, [selectedFile]);
   
   useEffect(() => {
-    const promptValue = watch("prompt");
+    const promptValue = formData?.watch("prompt");
     if (!promptValue || !promptValue.includes(`@${selectedFile}`)) {
       setSelectedFile("");
       setSelectedElInfo([])
     }
-  }, [watch("prompt"), selectedFile]);
+  }, [formData?.watch("prompt"), selectedFile]);
 
   useEffect(() => {
     const fileName = selectedElInfo?.[0]?.fileName;
@@ -211,7 +184,11 @@ export default function LogNPrompt({
   return (
     <div className="bg-base-100 rounded-lg h-11/12 max-[970px]:h-full w-full flex flex-col justify-between">
       <div className="h-8/12 flex flex-col items-center">
-        <div className="w-11/12 h-full flex flex-col justify-center items-center gap-y-4 py-6">
+        <div className="w-11/12 h-full flex flex-col justify-center items-center gap-y-4 py-6 relative">
+        <div className="absolute top-3 -left-1 text-base flex items-center gap-x-1 overflow-hidden group cursor-pointer text-base-content/60" onClick={() => setSentQuery(false)}>
+          <span className="z-50 bg-base-100 h-full flex items-center"><StepBack size={16}/></span>
+          <span className="-translate-x-28 group-hover:translate-x-0 transition-all duration-200">New scrape</span>
+        </div>
           <div className="flex flex-col justify-center items-center h-1/6">
             {loading ? (
               <h1 className="text-lg flex items-center gap-x-1">
@@ -273,7 +250,7 @@ export default function LogNPrompt({
               </h1>
             )}
 
-            <p className="text-sm text-base-content/30">{watch("query")}</p>
+            <p className="text-sm text-base-content/30">{formData?.watch("query")}</p>
           </div>
 
           <motion.div className="flex flex-col items-center  gap-y-2 relative w-full h-5/6">
@@ -298,7 +275,7 @@ export default function LogNPrompt({
                 </AnimatePresence>
               </div>
             ) : selectedElInfo?.length > 0 ? (
-              <div className="flex flex-col w-2/3 pl-5 pt-5">
+              <div className="flex flex-col w-2/3 max-[440px]:w-full  pt-5">
                 <div className="flex flex-col gap-y-3 bg-base-content/20 p-2 rounded-md *:flex *:gap-x-1">
                   <p>
                     <strong>Tag:</strong> {selectedElInfo[0].tagName}
@@ -320,7 +297,7 @@ export default function LogNPrompt({
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.4 }}
                     key={i}
-                    className="list-none pl-10 max-[1200px]:pl-5 max-[970px]:pl-24 max-[760px]:pl-20 max-[610px]:pl-10 max-[430px]:pl-0 flex gap-x-1 items-center text-base justify-start  px-3 py-2 rounded-lg h-10 w-2/3 mx-auto"
+                    className="list-none pl-15 max-[1200px]:pl-5 max-[970px]:pl-32 max-[760px]:pl-20 max-[610px]:pl-14 max-[430px]:pl-5 max-[330px]:pl-0 flex gap-x-1 items-center text-base justify-start  px-3 py-2 rounded-lg h-10 w-2/3 mx-auto"
                   >
                     <span>
                       <CheckCheck size={16} color="#019c2b" />
@@ -353,10 +330,8 @@ export default function LogNPrompt({
                   <div className="flex flex-col items-end bg-base-100 border border-base-content/20 focus:border-base-content/80 rounded-lg h-full">
                     <div className="flex w-full h-full">
                       <textarea
-                        name="prompt"
                         id="prompt"
-                        ref={inputRef}
-                        {...register("prompt")}
+                        {...formData?.register("prompt")}
                         placeholder="Modify the website design by making the header blue and adding rounded corners to all buttons."
                         className="w-full h-full pl-5 pt-3 pr-12 outline-none resize-none "
                         disabled={modifying || loading}
@@ -370,7 +345,7 @@ export default function LogNPrompt({
                           ? "bg-gray-300 text-base-100/40 cursor-not-allowed"
                           : "bg-base-300/50 hover:bg-base-300 w-fit"
                       } p-2 text-sm m-3`}
-                      onClick={handleSubmit(sendPromptToAgent)}
+                      onClick={formData?.handleSubmit(sendPromptToAgent)}
                       disabled={modifying || loading}
                     >
                       {modifying ? "Processing..." : "Modify UI"}{" "}
@@ -396,7 +371,7 @@ export default function LogNPrompt({
                       }
                     </div>
                   <SelectContent className="bg-base-content w-full">
-                    {getData.structure
+                    {getData?.structure
                       ?.filter(
                         (file: any) => file?.name && file.name.trim() !== ""
                       )
