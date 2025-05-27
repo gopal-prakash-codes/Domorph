@@ -89,15 +89,15 @@ export default function LogNPrompt() {
   }>(modifyingLogs[0]);
   const [selectedFile, setSelectedFile] = useState<string>("");
 
-  const sendPromptToAgent = async (data: any) => {
-    if (!data.prompt || !domain) {
+  const sendPromptToAgent = async () => {
+    if (!formData?.watch("prompt") || !domain) {
       toast.error(
         "Please enter a prompt and ensure a website has been scraped"
       );
       return;
     }
     
-    const cleaned = data.prompt.replace(`@${selectedFile}`, "").trim();
+    const cleaned = formData?.watch("prompt").replace(`@${selectedFile}`, "").trim();
 
     setModifying(true);
 
@@ -345,7 +345,7 @@ export default function LogNPrompt() {
                           ? "bg-gray-300 text-base-100/40 cursor-not-allowed"
                           : "bg-base-300/50 hover:bg-base-300 w-fit"
                       } p-2 text-sm m-3`}
-                      onClick={formData?.handleSubmit(sendPromptToAgent)}
+                      onClick={sendPromptToAgent}
                       disabled={modifying || loading}
                     >
                       {modifying ? "Processing..." : "Modify UI"}{" "}

@@ -48,7 +48,9 @@ async function llmCall(state) {
       - Return structured output if asked (e.g., modifiedElement).
       - Only use tools that match the goal of the prompt.
 
-      Respond by calling the right tool directly.`,
+      Respond by calling the right tool directly.
+      
+      If everything is successfully done, return "success" else return "failure"`,
     },
     ...state.messages,
   ]);
@@ -57,7 +59,6 @@ async function llmCall(state) {
     messages: [result],
   };
 }
-
 
 const toolNode = new ToolNode(tools);
 
@@ -99,17 +100,20 @@ export const newPromptToLlm = async (req, res) => {
     const messages = [
       {
         role: "user",
-        content: `${prompt}, ${xpath || "Not given"}, ${fileName || "Not given"}, ${domain || "Not given"}.`,
+        content: `${prompt}, ${xpath || "Not given"}, ${
+          fileName || "Not given"
+        }, ${domain || "Not given"}.`,
       },
     ];
 
     const result = await agentBuilder.invoke({ messages });
 
     const finalMessage = result.messages.at(-1);
+    const finalContent = finalMessage?.kwargs?.content || finalMessage?.content;
+
     const isSuccess =
-      finalMessage?.tool_calls?.length > 0 ||
-      (typeof finalMessage?.content === "string" &&
-        finalMessage.content.includes("modifiedElement"));
+      typeof finalContent === "string" &&
+      finalContent.toLowerCase().includes("success");
 
     console.log(`Result: ${JSON.stringify(result)}`);
     res.status(200).json({ result, status: isSuccess ? "success" : "failure" });
